@@ -991,6 +991,10 @@ function todayVisitCardHTML(p) {
       <div style="flex:1;min-width:0;">
         <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;color:var(--ink);display:flex;align-items:center;gap:8px;">${p.name}${p.room?`<span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:400;color:var(--ink3);background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 7px;">Rm ${p.room}</span>`:''}</div>
         <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--ink3);margin-top:2px;">${p.dob||'DOB not set'} · ${p.facility||'No facility'} · ${p.visitType||'Visit'}</div>
+        ${(p.notes||p.followupDetails) ? `<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:6px;">
+          ${p.notes ? `<span style="font-family:'Epilogue',sans-serif;font-size:0.72rem;color:var(--ink2);background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 8px;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.notes)}">📋 ${p.notes.length>90?p.notes.slice(0,90)+'…':p.notes}</span>` : ''}
+          ${p.followupDetails ? `<span style="font-family:'Epilogue',sans-serif;font-size:0.72rem;color:var(--amber);background:var(--amber-dim);border:1px solid rgba(245,166,35,0.3);border-radius:4px;padding:2px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.followupDetails)}">🔔 ${p.followupDetails.length>50?p.followupDetails.slice(0,50)+'…':p.followupDetails}</span>` : ''}
+        </div>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
         ${vd._generated ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:0.6rem;color:var(--green);background:var(--green-dim);padding:2px 8px;border-radius:10px;">✓ Note Generated</span>' : ''}
