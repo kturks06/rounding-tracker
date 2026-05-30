@@ -653,6 +653,22 @@ function patientCardHTML(p) {
         <button class="btn-save" onclick="savePatient(${p.id})">Save</button>
         <button class="btn-remove" onclick="removePatient(${p.id})">Remove Patient</button>
       </div>
+      ${p.lastGeneratedNote ? `
+      <div style="border-top:1px solid var(--border);margin-top:4px;">
+        <div onclick="toggleGenNote(${p.id})" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;background:var(--surface2);gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;color:var(--accent);">📄 Generated Note</span>
+            ${p.lastGeneratedNoteDate ? `<span style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--ink3);">${new Date(p.lastGeneratedNoteDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button onclick="event.stopPropagation();copyGenNote(${p.id})" style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;padding:2px 8px;background:none;border:1px solid var(--border2);border-radius:4px;color:var(--ink3);cursor:pointer;">Copy</button>
+            <span id="gen-note-exp-${p.id}" style="font-size:0.65rem;color:var(--ink3);transition:transform .2s;">▼</span>
+          </div>
+        </div>
+        <div id="gen-note-body-${p.id}" style="display:none;padding:14px 16px;background:var(--surface);">
+          <pre style="white-space:pre-wrap;font-family:'Epilogue',sans-serif;font-size:0.78rem;line-height:1.65;color:var(--ink2);margin:0;">${esc(p.lastGeneratedNote)}</pre>
+        </div>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -662,6 +678,19 @@ function toggleCard(id) {
   const detail = document.getElementById('detail-'+id);
   const exp = document.getElementById('exp-'+id);
   if (detail) { detail.classList.toggle('open'); if(exp) exp.classList.toggle('open'); }
+}
+function toggleGenNote(id) {
+  const body = document.getElementById('gen-note-body-'+id);
+  const exp = document.getElementById('gen-note-exp-'+id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (exp) exp.style.transform = open ? '' : 'rotate(180deg)';
+}
+function copyGenNote(id) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p || !p.lastGeneratedNote) return;
+  navigator.clipboard.writeText(p.lastGeneratedNote).then(()=>toast('Note copied ✓')).catch(()=>toast('Copy failed'));
 }
 
 function toggleRounded(e, id) {
@@ -829,9 +858,11 @@ function toggleTodayVisit(e, id) {
     // Unmark rounded so it can be re-checked after the visit
     p.rounded = false;
     p.roundedDate = null;
-    // Pre-populate today's visit notes from clinical notes
     if (!p.visitData) p.visitData = {};
-    if (p.notes && !p.visitData.additionalNotes) p.visitData.additionalNotes = p.notes;
+    // Pre-populate additional notes with last generated note (preferred) or clinical notes
+    if (!p.visitData.additionalNotes) {
+      p.visitData.additionalNotes = p.lastGeneratedNote || p.notes || '';
+    }
   }
   saveState(); renderSidebar(); renderContent();
   toast(p.todayVisit ? `📅 ${p.name.split(',')[0]} added to today's visits` : `${p.name.split(',')[0]} removed from today's visits`);
@@ -1210,63 +1241,56 @@ async function generateVisitNote(id) {
   if (spin) spin.style.display = 'block';
   if (txt) txt.textContent = 'Generating…';
 
-  const orientStr = (vd.orientation||[]).length ? `oriented to ${(vd.orientation||[]).join(', ')}` : 'orientation not assessed';
+  const orientStr = (vd.orientation||[]).length ? (vd.orientation||[]).join(', ') : 'not assessed';
   const symsPresent = ['symFrequency:frequency','symDysuria:dysuria','symUrgency:urgency','symAbdPain:abdominal pain','symBloating:bloating','symNausea:nausea','symVomiting:vomiting','symDiarrhea:diarrhea','symConstipation:constipation','symFatigue:fatigue','symDizziness:dizziness','symBlurredVision:blurred vision','symChestPain:chest pain','symSOB:shortness of breath'].filter(s=>vd[s.split(':')[0]]).map(s=>s.split(':')[1]);
   const symsDenied = ['symFrequency:frequency','symDysuria:dysuria','symUrgency:urgency','symAbdPain:abdominal pain','symBloating:bloating','symNausea:nausea','symVomiting:vomiting','symDiarrhea:diarrhea','symConstipation:constipation','symFatigue:fatigue','symDizziness:dizziness','symBlurredVision:blurred vision','symChestPain:chest pain','symSOB:shortness of breath'].filter(s=>!vd[s.split(':')[0]]).map(s=>s.split(':')[1]);
 
-  const prompt = `You are a nurse practitioner writing a clinical visit note for a facility rounding visit. Write a professional, concise SOAP note suitable for an EMR chart based on the data below.
+  const prompt = `Using the newest information, additional notes, labs, and additional information, and diagnoses, choose the top 5-7 most important diagnoses, with newest information being a minimum of 1 of those diagnoses if applicable, and write a detailed HISTORY OF PRESENT ILLNESS note for primary care visit organized by separate diagnosis. Then write a complete full assessment and plan (A&P) with the ICD codes for each diagnosis chosen with a minimum of one sentence for the assessment part of the A&P using the Medicare Advantage ICD-10-CM Quick Reference Code Guide 2025 as a guideline. Then list any additional ICD codes that could be added if appropriate, then list any discrepancies if present, then write any treatments that are needed and list any labs that should be ordered.
+
+Use professional clinical language suitable for a primary care medical chart.
 
 Patient: ${p.name}
-DOB: ${p.dob||'—'}
+Date of Birth: ${p.dob||'—'}
 Facility: ${p.facility||'—'}
 Visit Type: ${p.visitType||'Established Visit'}
 Visit Date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
 Chief Complaint: ${p.cc||'Routine rounding visit'}
 
 --- VISIT DATA ---
-COGNITIVE/NEURO:
-- Alert & ${orientStr}
-- Answers simple questions and follows commands: ${vd.answersQuestions||'not assessed'}
-- Ambulates independently: ${vd.ambulatesIndependently||'not assessed'}
-- Fall risk: ${vd.fallRisk||'not assessed'}
+Orientation: ${orientStr}
+Answers questions/follows commands: ${vd.answersQuestions||'not assessed'}
+Ambulation: ${vd.ambulation||'not assessed'} | Independent: ${vd.ambulatesIndependently||'not assessed'}
+Fall Risk: ${vd.fallRisk||'not assessed'}
+Recent Fall: ${vd.recentFall||'not assessed'}${vd.fallDetails ? ' — '+vd.fallDetails : ''}
+Recent Hospitalization: ${vd.recentHosp||'not assessed'}${vd.hospDetails ? ' — '+vd.hospDetails : ''}
 
-MOBILITY:
-- Ambulation: ${vd.ambulation||'not assessed'}
+Pain Score: ${vd.painScore||'0'}/10${vd.painLocation ? ' | Location: '+vd.painLocation : ''}${parseInt(vd.painScore||0)>0 && vd.painWorse ? ' | Worse with: '+vd.painWorse : ''}${parseInt(vd.painScore||0)>0 && vd.painBetter ? ' | Better with: '+vd.painBetter : ''}
 
-PAIN:
-- Score: ${vd.painScore||'0'}/10${vd.painLocation ? ', location: '+vd.painLocation : ''}${parseInt(vd.painScore||0)>0 && vd.painWorse ? '\n- Aggravated by: '+vd.painWorse : ''}${parseInt(vd.painScore||0)>0 && vd.painBetter ? '\n- Relieved by: '+vd.painBetter : ''}
+Review of Systems:
+${symsPresent.length ? 'Positive: '+symsPresent.join(', ') : 'No symptoms reported'}
+${symsDenied.length ? 'Negative: '+symsDenied.join(', ') : ''}
+Last bowel movement: ${vd.lastBM||'not reported'}
+Weight stable: ${vd.weightStable||'not assessed'}
+Sleep: ${vd.sleepsWell === 'Yes' ? 'Sleeps throughout night' : vd.sleepsWell === 'No' ? 'Reports sleep disturbances' : 'not assessed'}
+Mood: ${vd.moodStable === 'Yes' ? 'Stable' : vd.moodStable === 'No' ? 'Not stable' : 'not assessed'}
+Wounds: ${vd.deniesWounds === 'Yes' ? 'Denies wounds' : vd.deniesWounds === 'No' ? 'Wound(s) present' : 'not assessed'}
 
-REVIEW OF SYSTEMS:
-${symsPresent.length ? '- Reports: '+symsPresent.join(', ') : '- No symptoms reported'}
-${symsDenied.length ? '- Denies: '+symsDenied.join(', ') : ''}
-- Last bowel movement: ${vd.lastBM||'not reported'}
-- Weight stable: ${vd.weightStable||'not assessed'}
-- Sleep: ${vd.sleepsWell === 'Yes' ? 'sleeps throughout night without disturbance' : vd.sleepsWell === 'No' ? 'reports sleep disturbances' : 'not assessed'}
-- Mood: ${vd.moodStable === 'Yes' ? 'stable' : vd.moodStable === 'No' ? 'not stable' : 'not assessed'}
-- Wounds: ${vd.deniesWounds === 'Yes' ? 'denies wounds' : vd.deniesWounds === 'No' ? 'wound(s) present' : 'not assessed'}
+Vital Signs: BP ${vd.bp||'—'} | HR ${vd.hr||'—'} | RR ${vd.rr||'—'} | Temp ${vd.temp||'—'}°F | O₂ Sat ${vd.o2sat||'—'}% | Weight ${vd.weight||'—'} lbs
 
-VITALS:
-BP: ${vd.bp||'—'} | HR: ${vd.hr||'—'} | RR: ${vd.rr||'—'} | Temp: ${vd.temp||'—'}°F | O2 Sat: ${vd.o2sat||'—'}% | Weight: ${vd.weight||'—'} lbs
+Referrals: ${(vd.referralSet||[]).length ? (vd.referralSet||[]).join(', ') : 'None'}${vd.referralNotes ? ' — '+vd.referralNotes : ''}
+Follow Up: ${vd.followupNotes||'None'}
+Additional Notes / Newest Information: ${vd.additionalNotes||'None'}
 
-FALLS:
-- Recent fall: ${vd.recentFall||'not assessed'}${vd.fallDetails ? ' — '+vd.fallDetails : ''}
-
-RECENT HOSPITALIZATION:
-- Recent hospitalization: ${vd.recentHosp||'not assessed'}${vd.hospDetails ? ' — '+vd.hospDetails : ''}
-
-REFERRALS: ${(vd.referralSet||[]).length ? (vd.referralSet||[]).join(', ') : 'None'}${vd.referralNotes ? ' — '+vd.referralNotes : ''}
-
-FOLLOW UP: ${vd.followupNotes||'None'}
-
-ADDITIONAL NOTES: ${vd.additionalNotes||'None'}
---- END DATA ---
-
-Write a complete SOAP note. For Subjective, write in proper clinical narrative form (e.g. "Patient is a [age/gender] presenting for routine rounding visit. Patient is alert and oriented to... Denies chest pain, shortness of breath..."). For Objective include vitals. For Assessment summarize the clinical picture. For Plan include follow-up recommendations. Be professional and concise.`;
+Previous Clinical Notes: ${p.notes||'None'}
+--- END DATA ---`;
 
   try {
     const note = await callAI(prompt);
     vd._generatedNote = note;
     vd._generated = true;
+    // Store as last generated note on patient (shown in All Patients view)
+    p.lastGeneratedNote = note;
+    p.lastGeneratedNoteDate = new Date().toISOString();
     // Mirror generated visit note → clinical notes in patient card
     p.notes = note;
     p.visitData.additionalNotes = note;
@@ -1729,6 +1753,9 @@ ${ad.pastedInfo||'None provided'}
     const note = await callAI(prompt);
     ad._generatedNote = note;
     ad._generated = true;
+    // Store as last generated note on patient (shown in All Patients view)
+    p.lastGeneratedNote = note;
+    p.lastGeneratedNoteDate = new Date().toISOString();
     // Mirror admission note → clinical notes on patient card
     p.notes = note;
     saveState();
