@@ -707,6 +707,14 @@ function updateField(id, field, val) {
     p[field] = val;
     // Mirror clinical notes → today's visit additional notes
     if (field === 'notes' && p.visitData) p.visitData.additionalNotes = val;
+    // Auto-toggle follow-up flag when follow up field is typed in
+    if (field === 'followupDetails') {
+      if (!p.flags) p.flags = {};
+      p.flags.followup = val.trim().length > 0;
+      saveState(); updateStats(); renderSidebar();
+      // Re-open the card after re-render
+      setTimeout(() => { const d=document.getElementById('detail-'+id); if(d)d.classList.add('open'); const e=document.getElementById('exp-'+id); if(e)e.classList.add('open'); }, 10);
+    }
   }
 }
 
