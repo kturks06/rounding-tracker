@@ -373,6 +373,7 @@ function loadState() {
   try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
 }
 function saveState() {
+  state._lastModified = Date.now();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   syncToCloud();
 }
@@ -948,7 +949,12 @@ async function callAI(prompt) {
 }
 
 function saveVisitData(id) {
-  saveState(); toast('Visit data saved ✓');
+  state._lastModified = Date.now();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // Immediate sync — bypass debounce since user explicitly saved
+  clearTimeout(_syncTimer);
+  fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});
+  toast('Visit data saved ✓');
 }
 
 function markComplete(id) {
@@ -1919,7 +1925,21 @@ async function loadFromCloud(onDone){
   try{
     var r=await fetch(SCRIPT_URL+'?tool=rounding',{redirect:'follow'});
     var d=await r.json();
-    if(d&&d!=='null'){state=d;if(!state.facilities)state.facilities=[];if(!state.patients)state.patients=[];if(!state.nextId)state.nextId=1;try{localStorage.setItem("kt_rounding",JSON.stringify(state))}catch(ee){}}
+    if(d&&d!=='null'){
+      var cloudTs=d._lastModified||0;
+      var localTs=state._lastModified||0;
+      if(cloudTs>=localTs){
+        // Cloud is newer (or same) — use it
+        state=d;
+        if(!state.facilities)state.facilities=[];
+        if(!state.patients)state.patients=[];
+        if(!state.nextId)state.nextId=1;
+        try{localStorage.setItem("kt_rounding",JSON.stringify(state))}catch(ee){}
+      } else {
+        // Local is newer — push local to cloud to catch it up
+        fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});
+      }
+    }
   }catch(e){}
   if(onDone)onDone();
 }
@@ -1952,8 +1972,11 @@ function checkMonthlyReset() {
 
 document.addEventListener('DOMContentLoaded',function(){
   showSyncBanner();
+  // Show local data immediately so nothing looks lost on reload
+  checkMonthlyReset();
+  renderSidebar();renderContent();updateStats();populateFacilitySelect();
+  // Then sync from cloud in background (only replaces if cloud is newer)
   loadFromCloud(function(){
-    checkMonthlyReset();
     renderSidebar();renderContent();updateStats();populateFacilitySelect();
     var s=document.getElementById('sync-status');if(s)s.textContent='✓ Synced';
   });
