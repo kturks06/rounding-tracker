@@ -1953,19 +1953,12 @@ async function loadFromCloud(onDone){
     var r=await fetch(SCRIPT_URL+'?tool=rounding',{redirect:'follow'});
     var d=await r.json();
     if(d&&d!=='null'){
-      var cloudTs=d._lastModified||0;
-      var localTs=state._lastModified||0;
-      if(cloudTs>=localTs){
-        // Cloud is newer (or same) — use it
-        state=d;
-        if(!state.facilities)state.facilities=[];
-        if(!state.patients)state.patients=[];
-        if(!state.nextId)state.nextId=1;
-        try{localStorage.setItem("kt_rounding",JSON.stringify(state))}catch(ee){}
-      } else {
-        // Local is newer — push local to cloud to catch it up
-        fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});
-      }
+      // Always use cloud data on page load — cloud is the source of truth across devices
+      state=d;
+      if(!state.facilities)state.facilities=[];
+      if(!state.patients)state.patients=[];
+      if(!state.nextId)state.nextId=1;
+      try{localStorage.setItem("kt_rounding",JSON.stringify(state))}catch(ee){}
     }
   }catch(e){}
   if(onDone)onDone();
