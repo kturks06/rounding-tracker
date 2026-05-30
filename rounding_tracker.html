@@ -1900,7 +1900,13 @@ function bulkAdd() {
 
 
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycbyh_kKG2ZQWijdXmdIVTl7uQ5PWgQCPvaE0NxrWh3O9nmN2W9VdAEjIVr_HxQ9XGVTSng/exec';
-function syncToCloud(){fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});}
+let _syncTimer=null;
+function syncToCloud(){
+  clearTimeout(_syncTimer);
+  _syncTimer=setTimeout(function(){
+    fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});
+  },2000);
+}
 async function loadFromCloud(onDone){
   try{
     var r=await fetch(SCRIPT_URL+'?tool=rounding',{redirect:'follow'});
