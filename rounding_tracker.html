@@ -1,0 +1,2001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Facility Rounding Tracker — Kelvin Turks DNP</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c0f;
+  --surface: #111318;
+  --surface2: #181c23;
+  --surface3: #1f242e;
+  --ink: #e8eaed;
+  --ink2: #b0b4bc;
+  --ink3: #6b7080;
+  --border: #242830;
+  --border2: #2e3340;
+  --accent: #3d7fff;
+  --accent-dim: rgba(61,127,255,0.12);
+  --green: #2ecc87;
+  --green-dim: rgba(46,204,135,0.12);
+  --amber: #f5a623;
+  --amber-dim: rgba(245,166,35,0.12);
+  --red: #ff5c5c;
+  --red-dim: rgba(255,92,92,0.12);
+  --purple: #a78bfa;
+  --purple-dim: rgba(167,139,250,0.12);
+  --r: 6px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;font-weight:300;min-height:100vh;}
+
+/* HEADER */
+.header{padding:22px 32px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);}
+.header-left{display:flex;align-items:center;gap:14px;}
+.logo{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 0 20px rgba(61,127,255,0.4);}
+.app-name{font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:700;color:var(--ink);letter-spacing:-0.01em;}
+.app-sub{font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;margin-top:2px;}
+.header-right{display:flex;align-items:center;gap:12px;}
+.date-chip{font-family:'JetBrains Mono',monospace;font-size:0.68rem;color:var(--ink3);background:var(--surface2);border:1px solid var(--border2);padding:6px 12px;border-radius:20px;letter-spacing:0.06em;}
+.btn-add-patient{display:flex;align-items:center;gap:6px;font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:600;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);cursor:pointer;transition:all .15s;box-shadow:0 2px 10px rgba(61,127,255,0.3);}
+.btn-add-patient:hover{background:#2d6fe8;transform:translateY(-1px);}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border);}
+.stat{background:var(--surface);padding:14px 20px;display:flex;flex-direction:column;gap:3px;}
+.stat-num{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:700;color:var(--ink);line-height:1;}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);}
+.stat-num.blue{color:var(--accent);}
+.stat-num.green{color:var(--green);}
+.stat-num.amber{color:var(--amber);}
+.stat-num.red{color:var(--red);}
+.stat-num.purple{color:var(--purple);}
+
+/* MAIN LAYOUT */
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 130px);overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:16px 0;overflow-y:auto;}
+.sidebar-section-label{font-family:'JetBrains Mono',monospace;font-size:0.56rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink3);padding:8px 16px 6px;}
+.facility-btn{width:100%;text-align:left;padding:10px 16px;background:none;border:none;color:var(--ink2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;transition:all .15s;font-family:'Epilogue',sans-serif;font-size:0.84rem;border-left:2px solid transparent;}
+.facility-btn:hover{background:var(--surface2);color:var(--ink);}
+.facility-btn.active{background:var(--accent-dim);color:var(--accent);border-left-color:var(--accent);}
+.facility-btn .fac-count{font-family:'JetBrains Mono',monospace;font-size:0.62rem;background:var(--surface3);color:var(--ink3);padding:2px 7px;border-radius:10px;min-width:24px;text-align:center;}
+.facility-btn.active .fac-count{background:var(--accent-dim);color:var(--accent);}
+.sidebar-divider{height:1px;background:var(--border);margin:10px 0;}
+.btn-add-facility{width:calc(100% - 24px);margin:8px 12px;padding:8px;background:none;border:1px dashed var(--border2);border-radius:var(--r);color:var(--ink3);cursor:pointer;font-family:'Epilogue',sans-serif;font-size:0.78rem;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn-add-facility:hover{border-color:var(--accent);color:var(--accent);}
+
+/* MAIN CONTENT */
+.content{padding:24px 28px;overflow-y:auto;}
+.content-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.view-title{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--ink);}
+.view-sub{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--ink3);letter-spacing:0.08em;margin-top:3px;}
+.content-actions{display:flex;gap:8px;}
+.btn-sm{font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.06em;padding:6px 13px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface2);color:var(--ink3);cursor:pointer;transition:all .15s;}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+.btn-sm.danger:hover{border-color:var(--red);color:var(--red);}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.filter-chip{font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.06em;padding:5px 12px;border-radius:20px;border:1px solid var(--border2);background:none;color:var(--ink3);cursor:pointer;transition:all .15s;}
+.filter-chip:hover{border-color:var(--accent);color:var(--accent);}
+.filter-chip.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.filter-chip.f-labs.active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+.filter-chip.f-referral.active{background:var(--purple-dim);border-color:var(--purple);color:var(--purple);}
+.filter-chip.f-meds.active{background:var(--green-dim);border-color:var(--green);color:var(--green);}
+.filter-chip.f-followup.active{background:var(--red-dim);border-color:var(--red);color:var(--red);}
+
+/* PATIENT CARDS */
+.patients-grid{display:flex;flex-direction:column;gap:10px;}
+.patient-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .15s;animation:fadeUp .25s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.patient-card:hover{border-color:var(--border2);}
+.patient-card.rounded{border-left:3px solid var(--green);}
+.patient-card.pending{border-left:3px solid var(--amber);}
+.pc-top{padding:12px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.pc-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:700;flex-shrink:0;}
+.pc-info{flex:1;min-width:0;}
+.pc-name{font-family:'Syne',sans-serif;font-size:0.92rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:8px;}
+.room-input{font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:400;color:var(--ink3);background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;width:60px;text-align:center;letter-spacing:0.05em;transition:border-color .15s;}
+.room-input:focus{outline:none;border-color:var(--accent);color:var(--ink);}
+.room-input::placeholder{color:var(--ink3);opacity:0.5;}
+.pc-meta{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--ink3);letter-spacing:0.06em;margin-top:2px;}
+.pc-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;}
+.tag{font-family:'JetBrains Mono',monospace;font-size:0.56rem;letter-spacing:0.06em;padding:2px 7px;border-radius:3px;text-transform:uppercase;}
+.tag-labs{background:var(--amber-dim);color:var(--amber);}
+.tag-referral{background:var(--purple-dim);color:var(--purple);}
+.tag-meds{background:var(--green-dim);color:var(--green);}
+.tag-followup{background:var(--red-dim);color:var(--red);}
+.tag-rounded{background:var(--green-dim);color:var(--green);}
+.tag-new{background:var(--accent-dim);color:var(--accent);}
+.pc-right{display:flex;align-items:center;gap:8px;}
+.pc-facility-badge{font-family:'JetBrains Mono',monospace;font-size:0.58rem;padding:3px 8px;border-radius:3px;background:var(--surface3);color:var(--ink3);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
+.rounded-check{width:26px;height:26px;border-radius:50%;border:2px solid var(--border2);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:0.8rem;transition:all .15s;flex-shrink:0;}
+.rounded-check:hover{border-color:var(--green);color:var(--green);}
+.rounded-check.done{background:var(--green-dim);border-color:var(--green);color:var(--green);}
+.today-btn{width:26px;height:26px;border-radius:50%;border:2px solid var(--border2);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.7rem;transition:all .15s;flex-shrink:0;color:var(--ink3);}
+.today-btn:hover{border-color:var(--accent);background:var(--accent-dim);}
+.today-btn.on{background:var(--accent-dim);border-color:var(--accent);}
+/* symptom chips */
+.sym-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+.sym-chip{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:0.65rem;padding:4px 10px;border-radius:20px;border:1px solid var(--border2);background:var(--surface3);color:var(--ink3);cursor:pointer;user-select:none;transition:all .12s;}
+.sym-chip input{display:none;}
+.sym-chip.checked{background:var(--red-dim);border-color:var(--red);color:var(--red);}
+.sym-chip.checked-ok{background:var(--green-dim);border-color:var(--green);color:var(--green);}
+/* yn buttons */
+.yn-group{display:flex;gap:6px;margin-top:4px;}
+.yn-btn{font-family:'JetBrains Mono',monospace;font-size:0.65rem;padding:4px 14px;border-radius:20px;border:1px solid var(--border2);background:var(--surface3);color:var(--ink3);cursor:pointer;transition:all .12s;}
+.yn-btn.yes-on{background:var(--green-dim);border-color:var(--green);color:var(--green);}
+.yn-btn.no-on{background:var(--red-dim);border-color:var(--red);color:var(--red);}
+.pc-expand{color:var(--ink3);font-size:0.7rem;transition:transform .2s;cursor:pointer;}
+.pc-expand.open{transform:rotate(180deg);}
+
+/* PATIENT DETAIL */
+.pc-detail{display:none;padding:0 14px 14px;border-top:1px solid var(--border);}
+.pc-detail.open{display:block;}
+/* Admission cards */
+.adm-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:16px;overflow:hidden;}
+.adm-header{display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;transition:background .12s;}
+.adm-header:hover{background:var(--surface2);}
+.adm-form{padding:20px 20px 4px;}
+.adm-section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);padding:14px 0 6px;border-top:1px solid var(--border);margin-top:8px;}
+.adm-section-title:first-child{border-top:none;margin-top:0;padding-top:0;}
+.adm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:4px;}
+.adm-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;margin-bottom:4px;}
+.adm-field{display:flex;flex-direction:column;gap:4px;}
+.adm-field label{font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink3);}
+.adm-field input,.adm-field select,.adm-field textarea{background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;transition:border-color .12s;width:100%;box-sizing:border-box;}
+.adm-field input:focus,.adm-field select:focus,.adm-field textarea:focus{border-color:var(--accent);}
+.adm-field textarea{resize:vertical;line-height:1.5;}
+.adm-span2{grid-column:span 2;}
+@media(max-width:600px){.adm-grid2,.adm-grid3{grid-template-columns:1fr;}.adm-span2{grid-column:span 1;}}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;margin-top:12px;}
+.detail-field label{font-family:'JetBrains Mono',monospace;font-size:0.56rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:4px;}
+.detail-field input,.detail-field select,.detail-field textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;font-weight:300;padding:7px 9px;outline:none;transition:border-color .15s;}
+.detail-field input:focus,.detail-field select:focus,.detail-field textarea:focus{border-color:var(--accent);}
+.detail-field textarea{resize:vertical;min-height:52px;line-height:1.5;}
+.detail-field.full{grid-column:1/-1;}
+.flags-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.flag-toggle{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.05em;padding:5px 10px;border-radius:3px;border:1px solid var(--border2);background:none;color:var(--ink3);cursor:pointer;transition:all .15s;}
+.flag-toggle.on-labs{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+.flag-toggle.on-referral{background:var(--purple-dim);border-color:var(--purple);color:var(--purple);}
+.flag-toggle.on-meds{background:var(--green-dim);border-color:var(--green);color:var(--green);}
+.flag-toggle.on-followup{background:var(--red-dim);border-color:var(--red);color:var(--red);}
+.flag-toggle.on-newpt{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.detail-actions{display:flex;gap:8px;margin-top:10px;}
+.btn-save{font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.06em;padding:7px 14px;border-radius:var(--r);border:none;background:var(--accent);color:#fff;cursor:pointer;transition:all .15s;}
+.btn-save:hover{background:#2d6fe8;}
+.btn-remove{font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.06em;padding:7px 14px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--ink3);cursor:pointer;transition:all .15s;}
+.btn-remove:hover{border-color:var(--red);color:var(--red);}
+
+/* FACILITY GROUP HEADER (overview) */
+.facility-group{margin-bottom:28px;}
+.facility-group-header{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.facility-group-name{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--ink);}
+.facility-group-stats{display:flex;gap:8px;}
+.fgs{font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:3px 8px;border-radius:3px;}
+
+/* EMPTY STATE */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--ink3);text-align:center;gap:12px;}
+.empty-icon{font-size:2.5rem;opacity:0.3;}
+.empty p{font-family:'JetBrains Mono',monospace;font-size:0.72rem;letter-spacing:0.06em;line-height:1.8;}
+
+/* ADD PATIENT MODAL */
+#modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+#modal.open{display:flex;}
+.modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:8px;width:520px;max-width:96vw;box-shadow:var(--shadow-lg);overflow:hidden;}
+.modal-head{background:var(--surface2);padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--ink);}
+.modal-close{background:none;border:none;color:var(--ink3);cursor:pointer;font-size:1rem;padding:2px 6px;border-radius:3px;}
+.modal-close:hover{color:var(--ink);}
+.modal-body{padding:20px;}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.mfield{display:flex;flex-direction:column;gap:4px;}
+.mfield.full{grid-column:1/-1;}
+.mfield label{font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);}
+.mfield input,.mfield select{background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.88rem;font-weight:300;padding:9px 11px;outline:none;transition:border-color .15s;}
+.mfield input:focus,.mfield select:focus{border-color:var(--accent);}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+.btn-modal-cancel{font-family:'Epilogue',sans-serif;font-size:0.84rem;padding:9px 18px;background:none;border:1px solid var(--border2);color:var(--ink3);border-radius:var(--r);cursor:pointer;}
+.btn-modal-add{font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:9px 18px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);cursor:pointer;box-shadow:0 2px 8px rgba(61,127,255,0.3);}
+.btn-modal-add:hover{background:#2d6fe8;}
+
+/* ADD FACILITY MODAL */
+#fac-modal{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+#fac-modal.open{display:flex;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:0.05em;padding:10px 18px;border-radius:var(--r);box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transform:translateY(6px);transition:all .25s;z-index:9999;}
+#toast.show{opacity:1;transform:translateY(0);}
+
+/* VISIT STATUS */
+.visit-status{display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:0.6rem;letter-spacing:0.06em;padding:3px 8px;border-radius:3px;font-weight:500;}
+.vs-overdue{background:rgba(255,92,92,0.15);color:var(--red);border:1px solid rgba(255,92,92,0.3);}
+.vs-due-soon{background:rgba(245,166,35,0.15);color:var(--amber);border:1px solid rgba(245,166,35,0.3);}
+.vs-ok{background:rgba(46,204,135,0.12);color:var(--green);border:1px solid rgba(46,204,135,0.25);}
+.vs-never{background:rgba(255,92,92,0.15);color:var(--red);border:1px solid rgba(255,92,92,0.3);}
+
+/* VISIT STATUS STAT */
+.stat-num.orange{color:#ff8c42;}
+
+/* AVATAR COLORS */
+.av0{background:rgba(61,127,255,0.2);color:var(--accent);}
+.av1{background:rgba(46,204,135,0.2);color:var(--green);}
+.av2{background:rgba(245,166,35,0.2);color:var(--amber);}
+.av3{background:rgba(167,139,250,0.2);color:var(--purple);}
+.av4{background:rgba(255,92,92,0.2);color:var(--red);}
+
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{display:none;}
+  .stats-bar{grid-template-columns:repeat(3,1fr);}
+  .header{padding:14px 16px;}
+  .content{padding:16px;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">🏥</div>
+    <div>
+      <div class="app-name">Rounding Tracker</div>
+      <div class="app-sub">Kelvin Turks, DNP · AGACNP-BC</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="date-chip" id="today-chip">—</div>
+    <button class="btn-bulk" onclick="openBulkModal()" style="display:flex;align-items:center;gap:6px;font-family:'Syne',sans-serif;font-size:0.78rem;font-weight:600;padding:8px 16px;background:var(--surface2);color:var(--ink2);border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--ink2)'">⬆ Bulk Import</button>
+    <button class="btn-add-patient" onclick="openAddModal()">+ Add Patient</button>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-num blue" id="stat-total">0</div><div class="stat-label">Total Patients</div></div>
+  <div class="stat"><div class="stat-num green" id="stat-rounded">0</div><div class="stat-label">Rounded</div></div>
+  <div class="stat"><div class="stat-num amber" id="stat-pending">0</div><div class="stat-label">Pending</div></div>
+  <div class="stat"><div class="stat-num red" id="stat-followup">0</div><div class="stat-label">Follow-Up</div></div>
+  <div class="stat"><div class="stat-num purple" id="stat-labs">0</div><div class="stat-label">Labs Pending</div></div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section-label">Views</div>
+    <button class="facility-btn active" id="nav-overview" onclick="setView('overview')">
+      <span>📋 All Patients</span>
+      <span class="fac-count" id="nav-overview-count">0</span>
+    </button>
+    <button class="facility-btn" id="nav-admissions" onclick="setView('admissions')">
+      <span>🏥 Admissions</span>
+      <span class="fac-count" id="nav-admissions-count">0</span>
+    </button>
+    <button class="facility-btn" id="nav-today" onclick="setView('today')">
+      <span>📅 Today's Visits</span>
+      <span class="fac-count" id="nav-today-count">0</span>
+    </button>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section-label">Facilities</div>
+    <div id="facility-nav"></div>
+    <button class="btn-add-facility" onclick="openFacModal()">+ Add Facility</button>
+  </div>
+
+  <!-- CONTENT WRAPPER -->
+  <div style="display:flex;flex-direction:column;overflow:hidden;">
+    <!-- PERSISTENT SEARCH + FILTERS -->
+    <div style="padding:16px 28px 0;background:var(--bg);">
+      <div style="position:relative;margin-bottom:12px;">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:0.82rem;pointer-events:none;">🔍</span>
+        <input type="text" id="search-input" placeholder="Search by patient name…"
+          oninput="setSearch(this.value)"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.88rem;font-weight:300;padding:10px 36px;outline:none;transition:border-color .15s;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border2)'">
+        <button id="search-clear" onclick="clearSearch()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--ink3);cursor:pointer;font-size:0.8rem;padding:2px 6px;" title="Clear search">✕</button>
+      </div>
+    </div>
+    <!-- SCROLLABLE CONTENT -->
+    <div class="content" id="main-content">
+      <div class="empty">
+        <div class="empty-icon">🏥</div>
+        <p>No patients yet.<br>Click "+ Add Patient" to get started.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ADD PATIENT MODAL -->
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">Add Patient</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid">
+        <div class="mfield full"><label>Patient Name</label><input type="text" id="m-name" placeholder="Last, First"></div>
+        <div class="mfield"><label>Date of Birth</label><input type="text" id="m-dob" placeholder="MM/DD/YYYY"></div>
+        <div class="mfield"><label>Visit Type</label>
+          <select id="m-vtype">
+            <option value="Established Visit">Established Visit</option>
+            <option value="New Patient">New Patient</option>
+            <option value="Transitional Care">Transitional Care</option>
+            <option value="Annual Wellness">Annual Wellness</option>
+            <option value="Sick Visit">Sick Visit</option>
+          </select>
+        </div>
+        <div class="mfield full"><label>Facility</label>
+          <select id="m-facility"><option value="">— Select Facility —</option></select>
+        </div>
+        <div class="mfield full"><label>Chief Complaint / Reason for Visit</label>
+          <input type="text" id="m-cc" placeholder="e.g. Follow-up HTN, DM management…">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-modal-add" onclick="addPatient()">Add Patient</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD FACILITY MODAL -->
+<div id="fac-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">Add Facility</span>
+      <button class="modal-close" onclick="document.getElementById('fac-modal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="mfield"><label>Facility Name</label><input type="text" id="fac-name-input" placeholder="e.g. Brickmont of Roswell"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-modal-cancel" onclick="document.getElementById('fac-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-modal-add" onclick="addFacility()">Add Facility</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'kt_rounding';
+
+function loadState() {
+  try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
+}
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  syncToCloud();
+}
+
+let state = loadState() || {
+  facilities: ['Brickmont of Roswell','Pegasus Landing of Roswell','The Addison at Sandy Springs','The Georgian Lakeside'],
+  patients: [],
+  nextId: 1
+};
+
+let currentView = 'overview';
+let activeFilter = null;
+let searchQuery = '';
+const AVATAR_COLORS = ['av0','av1','av2','av3','av4'];
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+document.getElementById('today-chip').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}).toUpperCase();
+
+function init() {
+  renderSidebar();
+  renderContent();
+  updateStats();
+  populateFacilitySelect();
+}
+
+// ── SIDEBAR ──────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const nav = document.getElementById('facility-nav');
+  nav.innerHTML = '';
+  state.facilities.forEach(fac => {
+    const count = state.patients.filter(p => p.facility === fac).length;
+    const btn = document.createElement('button');
+    btn.className = 'facility-btn' + (currentView === fac ? ' active' : '');
+    btn.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${fac}</span><span class="fac-count">${count}</span>`;
+    btn.onclick = () => setView(fac);
+    nav.appendChild(btn);
+  });
+  document.getElementById('nav-overview').classList.toggle('active', currentView === 'overview');
+  document.getElementById('nav-overview-count').textContent = state.patients.length;
+  document.getElementById('nav-admissions').classList.toggle('active', currentView === 'admissions');
+  document.getElementById('nav-admissions-count').textContent = state.patients.filter(p=>p.flags&&p.flags.newpt).length;
+  document.getElementById('nav-today').classList.toggle('active', currentView === 'today');
+  document.getElementById('nav-today-count').textContent = state.patients.filter(p=>p.todayVisit).length;
+}
+
+function setView(view) {
+  currentView = view;
+  activeFilter = null;
+  renderSidebar();
+  renderContent();
+}
+
+// ── VISIT STATUS HELPERS ─────────────────────────────────────────────────────
+function calcNextDue(lastSeenStr) {
+  if (!lastSeenStr) return '';
+  const d = new Date(lastSeenStr);
+  d.setDate(d.getDate() + 30); // 30 days = monthly minimum
+  return d.toISOString().split('T')[0];
+}
+
+function getVisitStatus(p) {
+  if (!p.lastSeen) return 'never';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const nextDue = new Date(p.nextDue || calcNextDue(p.lastSeen));
+  const daysUntil = Math.ceil((nextDue - today) / (1000*60*60*24));
+  if (daysUntil < 0) return 'overdue';
+  if (daysUntil <= 7) return 'due-soon';
+  return 'ok';
+}
+
+function getNextDueColor(p) {
+  const s = getVisitStatus(p);
+  if (s === 'overdue' || s === 'never') return 'var(--red)';
+  if (s === 'due-soon') return 'var(--amber)';
+  return 'var(--green)';
+}
+
+function daysUntilDue(p) {
+  if (!p.lastSeen && !p.nextDue) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const nextDue = new Date(p.nextDue || calcNextDue(p.lastSeen));
+  return Math.ceil((nextDue - today) / (1000*60*60*24));
+}
+
+function getVisitStatusBadge(p) {
+  const status = getVisitStatus(p);
+  const days = daysUntilDue(p);
+  if (status === 'never') return `<span class="visit-status vs-never">⚠ Never seen — set date</span>`;
+  if (status === 'overdue') {
+    const overBy = Math.abs(days);
+    return `<span class="visit-status vs-overdue">⚠ Overdue by ${overBy}d</span>`;
+  }
+  if (status === 'due-soon') return `<span class="visit-status vs-due-soon">⏰ Due in ${days}d</span>`;
+  return `<span class="visit-status vs-ok">✓ Due in ${days}d</span>`;
+}
+
+function updateLastSeen(id, val) {
+  const p = state.patients.find(p=>p.id===id);
+  if (p) {
+    p.lastSeen = val;
+    p.nextDue = calcNextDue(val);
+    saveState(); renderContent(); updateStats();
+    setTimeout(() => { const d=document.getElementById('detail-'+id); if(d)d.classList.add('open'); const e=document.getElementById('exp-'+id); if(e)e.classList.add('open'); }, 10);
+  }
+}
+
+// ── STATS ────────────────────────────────────────────────────────────────────
+function updateStats() {
+  const pts = state.patients;
+  document.getElementById('stat-total').textContent = pts.length;
+  document.getElementById('stat-rounded').textContent = pts.filter(p=>p.rounded).length;
+  document.getElementById('stat-pending').textContent = pts.filter(p=>!p.rounded).length;
+  document.getElementById('stat-overdue').textContent = pts.filter(p=>{ const s=getVisitStatus(p); return s==='overdue'||s==='never'; }).length;
+  document.getElementById('stat-duesoon').textContent = pts.filter(p=>getVisitStatus(p)==='due-soon').length;
+  document.getElementById('stat-labs').textContent = pts.filter(p=>p.flags&&p.flags.labs).length;
+}
+
+// ── CONTENT ──────────────────────────────────────────────────────────────────
+function renderContent() {
+  if (currentView === 'admissions') { renderAdmissions(); return; }
+  if (currentView === 'today') { renderTodayVisits(); return; }
+  const el = document.getElementById('main-content');
+  let patients = currentView === 'overview' ? [...state.patients] : state.patients.filter(p => p.facility === currentView);
+
+  // Apply filter
+  if (activeFilter === 'labs') patients = patients.filter(p => p.flags&&p.flags.labs);
+  if (activeFilter === 'referral') patients = patients.filter(p => p.flags&&p.flags.referral);
+  if (activeFilter === 'meds') patients = patients.filter(p => p.flags&&p.flags.meds);
+  if (activeFilter === 'followup') patients = patients.filter(p => p.flags&&p.flags.followup);
+  if (activeFilter === 'pending') patients = patients.filter(p => !p.rounded);
+  if (activeFilter === 'newpt') patients = patients.filter(p => p.flags&&p.flags.newpt);
+  if (activeFilter === 'overdue') patients = patients.filter(p => getVisitStatus(p) === 'overdue' || getVisitStatus(p) === 'never');
+  if (activeFilter === 'duesoon') patients = patients.filter(p => getVisitStatus(p) === 'due-soon');
+
+  // Apply search
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
+    patients = patients.filter(p => p.name.toLowerCase().includes(q));
+  }
+
+  const titleText = currentView === 'overview' ? 'All Patients' : currentView;
+  const subText = currentView === 'overview' ? `${state.patients.length} patients across ${state.facilities.length} facilities` : `${patients.length} patient${patients.length!==1?'s':''} · ${currentView}`;
+
+  let html = `
+    <div class="content-header">
+      <div>
+        <div class="view-title">${titleText}</div>
+        <div class="view-sub">${subText}</div>
+      </div>
+      <div class="content-actions">
+        <button class="btn-sm" onclick="markAllRounded()">✓ Mark All Rounded</button>
+        <button class="btn-sm danger" onclick="clearRounded()">↺ Clear Rounded</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <button class="filter-chip ${activeFilter===null?'active':''}" onclick="setFilter(null)">All</button>
+      <button class="filter-chip ${activeFilter==='pending'?'active':''}" onclick="setFilter('pending')">Pending</button>
+      <button class="filter-chip f-followup ${activeFilter==='followup'?'active':''}" onclick="setFilter('followup')">Follow-Up</button>
+      <button class="filter-chip f-labs ${activeFilter==='labs'?'active':''}" onclick="setFilter('labs')">Labs Pending</button>
+      <button class="filter-chip f-referral ${activeFilter==='referral'?'active':''}" onclick="setFilter('referral')">Referral</button>
+      <button class="filter-chip f-meds ${activeFilter==='meds'?'active':''}" onclick="setFilter('meds')">Med Change</button>
+      <button class="filter-chip ${activeFilter==='newpt'?'active':''}" onclick="setFilter('newpt')">⭐ New Patient</button>
+      <button class="filter-chip" style="${activeFilter==='overdue'?'background:var(--red-dim);border-color:var(--red);color:var(--red);':''}" onclick="setFilter('overdue')">⚠ Overdue</button>
+      <button class="filter-chip" style="${activeFilter==='duesoon'?'background:var(--amber-dim);border-color:var(--amber);color:var(--amber);':''}" onclick="setFilter('duesoon')">⏰ Due This Week</button>
+    </div>
+  `;
+
+  if (!patients.length) {
+    html += `<div class="empty"><div class="empty-icon">${activeFilter ? '🔍' : '🏥'}</div><p>${activeFilter ? 'No patients match this filter.' : 'No patients here yet.'}</p></div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  if (currentView === 'overview') {
+    // Group by facility
+    const byFac = {};
+    patients.forEach(p => {
+      if (!byFac[p.facility]) byFac[p.facility] = [];
+      byFac[p.facility].push(p);
+    });
+    // Also ungrouped
+    const noFac = patients.filter(p => !p.facility);
+    if (noFac.length) byFac['Unassigned'] = noFac;
+
+    html += '<div>';
+    Object.entries(byFac).forEach(([fac, fps]) => {
+      const rounded = fps.filter(p=>p.rounded).length;
+      html += `<div class="facility-group">
+        <div class="facility-group-header">
+          <div class="facility-group-name">${fac}</div>
+          <div class="facility-group-stats">
+            <span class="fgs" style="background:var(--green-dim);color:var(--green);">${rounded} rounded</span>
+            <span class="fgs" style="background:var(--amber-dim);color:var(--amber);">${fps.length-rounded} pending</span>
+          </div>
+        </div>
+        <div class="patients-grid">${fps.map(p => patientCardHTML(p)).join('')}</div>
+      </div>`;
+    });
+    html += '</div>';
+  } else {
+    html += `<div class="patients-grid">${patients.map(p => patientCardHTML(p)).join('')}</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function patientCardHTML(p) {
+  const initials = p.name.split(/[\s,]+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const avClass = AVATAR_COLORS[p.id % 5];
+  const tags = [];
+  if (p.flags) {
+    if (p.flags.newpt) tags.push(`<span class="tag tag-new">New Patient</span>`);
+    if (p.flags.labs) tags.push(`<span class="tag tag-labs">Labs</span>`);
+    if (p.flags.referral) tags.push(`<span class="tag tag-referral">Referral</span>`);
+    if (p.flags.meds) tags.push(`<span class="tag tag-meds">Meds</span>`);
+    if (p.flags.followup) tags.push(`<span class="tag tag-followup">Follow-Up</span>`);
+  }
+  if (p.rounded) {
+    const rd = p.roundedDate ? ' · ' + new Date(p.roundedDate).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+    tags.push(`<span class="tag tag-rounded">✓ Rounded${rd}</span>`);
+  }
+
+  return `<div class="patient-card ${p.rounded?'rounded':'pending'}" id="pc-${p.id}">
+    <div class="pc-top" onclick="toggleCard(${p.id})">
+      <div class="pc-avatar ${avClass}">${initials}</div>
+      <div class="pc-info">
+        <div class="pc-name">
+          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</span>
+          <input class="room-input" type="text" placeholder="Rm #" value="${p.room||''}" onclick="event.stopPropagation()" onchange="updateField(${p.id},'room',this.value);saveState()" title="Room number">
+        </div>
+        <div class="pc-meta">${p.dob?p.dob+' · ':''}${p.visitType||'Visit'}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
+          ${getVisitStatusBadge(p)}
+          ${tags.map(t=>t).join('')}
+        </div>
+      </div>
+      <div class="pc-right">
+        ${currentView==='overview' ? `<span class="pc-facility-badge">${p.facility||'—'}</span>` : ''}
+        <button class="today-btn ${p.todayVisit?'on':''}" onclick="toggleTodayVisit(event,${p.id})" title="${p.todayVisit?'Remove from today\'s visits':'Mark for today\'s visit'}">📅</button>
+        <button class="rounded-check ${p.rounded?'done':''}" onclick="toggleRounded(event,${p.id})"
+          title="${p.rounded && p.roundedDate ? 'Rounded on ' + new Date(p.roundedDate).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) + ' — click to unmark' : p.rounded ? 'Mark not rounded' : 'Mark as rounded'}"
+          style="flex-direction:column;gap:1px;font-size:${p.rounded?'0.55rem':'0.8rem'};">
+          ${p.rounded ? '✓' : '○'}
+          ${p.rounded && p.roundedDate ? `<span style="font-family:'JetBrains Mono',monospace;font-size:0.45rem;letter-spacing:0;color:var(--green);line-height:1;">${new Date(p.roundedDate).toLocaleDateString('en-US',{month:'numeric',day:'numeric'})}</span>` : ''}
+        </button>
+        <span class="pc-expand" id="exp-${p.id}">▼</span>
+      </div>
+    </div>
+    <div class="pc-detail" id="detail-${p.id}">
+      <div class="flags-row">
+        <button class="flag-toggle ${p.flags?.newpt?'on-newpt':''}" onclick="toggleFlag(${p.id},'newpt')">⭐ New Patient</button>
+        <button class="flag-toggle ${p.flags?.labs?'on-labs':''}" onclick="toggleFlag(${p.id},'labs')">🧪 Labs Pending</button>
+        <button class="flag-toggle ${p.flags?.referral?'on-referral':''}" onclick="toggleFlag(${p.id},'referral')">↗ Referral</button>
+        <button class="flag-toggle ${p.flags?.meds?'on-meds':''}" onclick="toggleFlag(${p.id},'meds')">💊 Med Change</button>
+        <button class="flag-toggle ${p.flags?.followup?'on-followup':''}" onclick="toggleFlag(${p.id},'followup')">🔔 Follow-Up</button>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-field"><label>Last Seen Date</label>
+          <input type="date" value="${p.lastSeen||''}" onchange="updateLastSeen(${p.id},this.value)">
+        </div>
+        <div class="detail-field"><label>Next Visit Due</label>
+          <input type="date" value="${p.nextDue||''}" readonly style="color:${getNextDueColor(p)};font-weight:500;">
+        </div>
+        <div class="detail-field"><label>Chief Complaint</label><input type="text" value="${esc(p.cc||'')}" onchange="updateField(${p.id},'cc',this.value)" placeholder="Reason for visit…"></div>
+        <div class="detail-field"><label>Facility</label>
+          <select onchange="updateField(${p.id},'facility',this.value)">
+            ${state.facilities.map(f=>`<option value="${f}" ${p.facility===f?'selected':''}>${f}</option>`).join('')}
+          </select>
+        </div>
+        <div class="detail-field full"><label>Clinical Notes</label><textarea onchange="updateField(${p.id},'notes',this.value)" placeholder="Assessment, plan updates, pending items…">${esc(p.notes||'')}</textarea></div>
+        <div class="detail-field"><label>Labs Ordered / Pending</label><input type="text" value="${esc(p.labDetails||'')}" onchange="updateField(${p.id},'labDetails',this.value)" placeholder="CBC, BMP, HbA1c…"></div>
+        <div class="detail-field"><label>Referral Details</label><input type="text" value="${esc(p.referralDetails||'')}" onchange="updateField(${p.id},'referralDetails',this.value)" placeholder="Cardiology, Podiatry…"></div>
+        <div class="detail-field"><label>Medication Changes</label><input type="text" value="${esc(p.medDetails||'')}" onchange="updateField(${p.id},'medDetails',this.value)" placeholder="Started, stopped, adjusted…"></div>
+        <div class="detail-field"><label>Follow Up</label><input type="text" value="${esc(p.followupDetails||'')}" onchange="updateField(${p.id},'followupDetails',this.value)" placeholder="Return in 2 weeks…"></div>
+      </div>
+      <div class="detail-actions">
+        <button class="btn-save" onclick="savePatient(${p.id})">Save</button>
+        <button class="btn-remove" onclick="removePatient(${p.id})">Remove Patient</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── INTERACTIONS ─────────────────────────────────────────────────────────────
+function toggleCard(id) {
+  const detail = document.getElementById('detail-'+id);
+  const exp = document.getElementById('exp-'+id);
+  if (detail) { detail.classList.toggle('open'); if(exp) exp.classList.toggle('open'); }
+}
+
+function toggleRounded(e, id) {
+  e.stopPropagation();
+  const p = state.patients.find(p=>p.id===id);
+  if (p) {
+    p.rounded = !p.rounded;
+    if (p.rounded) {
+      const today = new Date().toISOString().split('T')[0];
+      p.lastSeen = today;
+      p.nextDue = calcNextDue(today);
+      p.roundedDate = new Date().toISOString();
+      // Auto-remove from today's visits when marked as seen
+      p.todayVisit = false;
+      // Clear clinical notes so next visit starts fresh
+      p.notes = '';
+      // Clear referral details and new patient flag
+      p.referralDetails = '';
+      if (p.flags) { p.flags.referral = false; p.flags.newpt = false; }
+      if (p.visitData) { p.visitData.additionalNotes = ''; p.visitData._generatedNote = ''; p.visitData._generated = false; p.visitData.referralSet = []; p.visitData.referralNotes = ''; }
+    } else {
+      p.roundedDate = null;
+    }
+    saveState(); renderSidebar(); renderContent(); updateStats();
+    const dateStr = p.rounded ? ' on ' + new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+    toast(p.rounded ? `✓ ${p.name.split(',')[0]} rounded${dateStr}` : `${p.name.split(',')[0]} unmarked`);
+  }
+}
+
+function toggleFlag(id, flag) {
+  const p = state.patients.find(p=>p.id===id);
+  if (p) {
+    if (!p.flags) p.flags = {};
+    p.flags[flag] = !p.flags[flag];
+    saveState(); renderContent(); updateStats();
+    // Re-open the card
+    setTimeout(() => { const d=document.getElementById('detail-'+id); if(d)d.classList.add('open'); const e=document.getElementById('exp-'+id); if(e)e.classList.add('open'); }, 10);
+  }
+}
+
+function updateField(id, field, val) {
+  const p = state.patients.find(p=>p.id===id);
+  if (p) {
+    p[field] = val;
+    // Mirror clinical notes → today's visit additional notes
+    if (field === 'notes' && p.visitData) p.visitData.additionalNotes = val;
+  }
+}
+
+function savePatient(id) {
+  saveState(); renderContent(); updateStats(); toast('Saved ✓');
+  setTimeout(() => { const d=document.getElementById('detail-'+id); if(d)d.classList.add('open'); const e=document.getElementById('exp-'+id); if(e)e.classList.add('open'); }, 10);
+}
+
+function removePatient(id) {
+  if (!confirm('Remove this patient?')) return;
+  state.patients = state.patients.filter(p=>p.id!==id);
+  saveState(); renderSidebar(); renderContent(); updateStats(); toast('Patient removed');
+}
+
+function setFilter(f) { activeFilter = f; renderContent(); }
+
+function setSearch(q) {
+  searchQuery = q;
+  // Show/hide clear button without re-rendering
+  const clearBtn = document.getElementById('search-clear');
+  if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+  renderContent();
+  // Restore focus to search input after render
+  const input = document.getElementById('search-input');
+  if (input) {
+    const len = input.value.length;
+    input.focus();
+    input.setSelectionRange(len, len);
+  }
+}
+
+function clearSearch() {
+  searchQuery = '';
+  const input = document.getElementById('search-input');
+  if (input) { input.value = ''; input.focus(); }
+  const clearBtn = document.getElementById('search-clear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderContent();
+}
+
+function markAllRounded() {
+  const pts = currentView === 'overview' ? state.patients : state.patients.filter(p=>p.facility===currentView);
+  pts.forEach(p => p.rounded = true);
+  saveState(); renderContent(); updateStats(); toast('All patients marked as rounded ✓');
+}
+
+function clearRounded() {
+  const pts = currentView === 'overview' ? state.patients : state.patients.filter(p=>p.facility===currentView);
+  pts.forEach(p => p.rounded = false);
+  saveState(); renderContent(); updateStats(); toast('Rounded status cleared');
+}
+
+// ── ADD PATIENT ───────────────────────────────────────────────────────────────
+function openAddModal() {
+  populateFacilitySelect();
+  if (currentView !== 'overview') {
+    const sel = document.getElementById('m-facility');
+    if ([...sel.options].some(o=>o.value===currentView)) sel.value = currentView;
+  }
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('m-name').focus();
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+function addPatient() {
+  const name = document.getElementById('m-name').value.trim();
+  const fac  = document.getElementById('m-facility').value;
+  if (!name) { toast('Please enter a patient name'); return; }
+  const p = {
+    id: state.nextId++,
+    name, dob: document.getElementById('m-dob').value,
+    visitType: document.getElementById('m-vtype').value,
+    facility: fac, cc: document.getElementById('m-cc').value,
+    rounded: false, flags: {}, notes: '', labDetails: '', referralDetails: '', medDetails: '', followupDetails: ''
+  };
+  state.patients.push(p);
+  saveState();
+  // Clear form
+  ['m-name','m-dob','m-cc'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('m-vtype').value='Established Visit';
+  closeModal();
+  renderSidebar(); renderContent(); updateStats();
+  toast(`${name} added ✓`);
+}
+
+function populateFacilitySelect() {
+  const sel = document.getElementById('m-facility');
+  sel.innerHTML = '<option value="">— Select Facility —</option>' + state.facilities.map(f=>`<option value="${f}">${f}</option>`).join('');
+}
+
+// ── ADD FACILITY ──────────────────────────────────────────────────────────────
+function openFacModal() { document.getElementById('fac-modal').classList.add('open'); document.getElementById('fac-name-input').focus(); }
+
+function addFacility() {
+  const name = document.getElementById('fac-name-input').value.trim();
+  if (!name) return;
+  if (!state.facilities.includes(name)) state.facilities.push(name);
+  saveState(); renderSidebar(); populateFacilitySelect();
+  document.getElementById('fac-name-input').value = '';
+  document.getElementById('fac-modal').classList.remove('open');
+  toast(`${name} added ✓`);
+}
+
+// ── TODAY'S VISITS ────────────────────────────────────────────────────────────
+function toggleTodayVisit(e, id) {
+  e.stopPropagation();
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  p.todayVisit = !p.todayVisit;
+  if (p.todayVisit) {
+    // Unmark rounded so it can be re-checked after the visit
+    p.rounded = false;
+    p.roundedDate = null;
+    // Pre-populate today's visit notes from clinical notes
+    if (!p.visitData) p.visitData = {};
+    if (p.notes && !p.visitData.additionalNotes) p.visitData.additionalNotes = p.notes;
+  }
+  saveState(); renderSidebar(); renderContent();
+  toast(p.todayVisit ? `📅 ${p.name.split(',')[0]} added to today's visits` : `${p.name.split(',')[0]} removed from today's visits`);
+}
+
+function renderTodayVisits() {
+  const el = document.getElementById('main-content');
+  const pts = state.patients.filter(p => p.todayVisit);
+  let html = `
+    <div class="content-header">
+      <div>
+        <div class="view-title">Today's Visits</div>
+        <div class="view-sub">${pts.length} patient${pts.length!==1?'s':''} scheduled · ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
+      </div>
+    </div>`;
+  if (!pts.length) {
+    html += `<div class="empty"><div class="empty-icon">📅</div><p>No patients marked for today.<br>Press the 📅 button on any patient card to add them.</p></div>`;
+    el.innerHTML = html;
+    return;
+  }
+  html += pts.map(p => todayVisitCardHTML(p)).join('');
+  el.innerHTML = html;
+}
+
+function tvYN(id, field, val) {
+  // yes/no button toggle
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.visitData) p.visitData = {};
+  p.visitData[field] = p.visitData[field] === val ? '' : val;
+  // update button states
+  const group = document.querySelector(`.yn-group[data-field="${field}-${id}"]`);
+  if (group) {
+    group.querySelectorAll('.yn-btn').forEach(btn => {
+      btn.classList.remove('yes-on','no-on');
+      if (btn.dataset.val === p.visitData[field]) {
+        btn.classList.add(btn.dataset.val === 'Yes' ? 'yes-on' : 'no-on');
+      }
+    });
+  }
+}
+
+function tvChange(id, field, val) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.visitData) p.visitData = {};
+  p.visitData[field] = val;
+  // Mirror additional notes → clinical notes in patient card
+  if (field === 'additionalNotes') p.notes = val;
+  // Follow-up text triggers the follow-up flag on patient card
+  if (field === 'followupNotes') {
+    if (!p.flags) p.flags = {};
+    p.flags.followup = val.trim().length > 0;
+    p.followupDetails = val;
+    renderSidebar();
+  }
+}
+
+function tvSetReferral(id, type, el) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.visitData) p.visitData = {};
+  if (!Array.isArray(p.visitData.referralSet)) p.visitData.referralSet = [];
+  const arr = p.visitData.referralSet;
+  const idx = arr.indexOf(type);
+  if (idx >= 0) {
+    arr.splice(idx, 1);
+  } else {
+    arr.push(type);
+  }
+  el.classList.toggle('checked-ok', arr.includes(type));
+  // Sync to patient card referral field
+  if (!p.flags) p.flags = {};
+  p.flags.referral = arr.length > 0;
+  p.referralDetails = arr.join('; ') + (p.visitData.referralNotes ? '; ' + p.visitData.referralNotes : '');
+  renderSidebar();
+}
+
+function tvToggleSym(id, field, el) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.visitData) p.visitData = {};
+  p.visitData[field] = !p.visitData[field];
+  el.classList.toggle('checked', !!p.visitData[field]);
+}
+
+function tvToggleOrient(id, val, el) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.visitData) p.visitData = {};
+  if (!Array.isArray(p.visitData.orientation)) p.visitData.orientation = [];
+  const arr = p.visitData.orientation;
+  const idx = arr.indexOf(val);
+  if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+  el.classList.toggle('checked-ok', arr.includes(val));
+}
+
+async function callAI(prompt) {
+  const key = localStorage.getItem('kt_api_key');
+  if (!key || !key.startsWith('sk-ant-')) throw new Error('API key not set — open Bulk Import and add your Anthropic key');
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-opus-4-5',max_tokens:4000,messages:[{role:'user',content:prompt}]})
+    });
+  } catch(netErr) {
+    throw new Error('Could not reach Anthropic — check your connection. ('+netErr.message+')');
+  }
+  if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'Anthropic API error ('+res.status+')'); }
+  const data = await res.json();
+  return data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+
+function saveVisitData(id) {
+  saveState(); toast('Visit data saved ✓');
+}
+
+function markComplete(id) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (p.rounded) { toast(`${p.name.split(',')[0]} already marked complete`); return; }
+  const today = new Date().toISOString().split('T')[0];
+  p.rounded = true;
+  p.lastSeen = today;
+  p.nextDue = calcNextDue(today);
+  p.roundedDate = new Date().toISOString();
+  p.todayVisit = false;
+  p.notes = '';
+  p.referralDetails = '';
+  if (!p.flags) p.flags = {};
+  p.flags.referral = false;
+  p.flags.newpt = false;
+  if (p.visitData) { p.visitData.additionalNotes = ''; p.visitData._generatedNote = ''; p.visitData._generated = false; p.visitData.referralSet = []; p.visitData.referralNotes = ''; }
+  if (p.admissionData) { p.admissionData._generatedNote = ''; p.admissionData._generated = false; }
+  saveState(); renderSidebar(); renderContent(); updateStats();
+  const dateStr = ' on ' + new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  toast(`✓ ${p.name.split(',')[0]} marked complete${dateStr}`);
+}
+
+function todayVisitCardHTML(p) {
+  const vd = p.visitData || {};
+  const initials = p.name.split(/[\s,]+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const avClass = 'av' + (p.id % 5);
+  const orientArr = vd.orientation || [];
+
+  function yn(field, label) {
+    const cur = vd[field] || '';
+    return `<div class="adm-field">
+      <label>${label}</label>
+      <div class="yn-group" data-field="${field}-${p.id}">
+        <button class="yn-btn ${cur==='Yes'?'yes-on':''}" data-val="Yes" onclick="tvYN(${p.id},'${field}','Yes')">Yes</button>
+        <button class="yn-btn ${cur==='No'?'no-on':''}" data-val="No" onclick="tvYN(${p.id},'${field}','No')">No</button>
+      </div>
+    </div>`;
+  }
+  function sym(field, label) {
+    return `<span class="sym-chip ${vd[field]?'checked':''}" onclick="tvToggleSym(${p.id},'${field}',this)">${label}</span>`;
+  }
+
+  return `
+  <div class="adm-card" id="tv-${p.id}">
+    <div class="adm-header" onclick="toggleTvCard(${p.id})">
+      <div class="pc-avatar ${avClass}" style="width:36px;height:36px;font-size:0.82rem;flex-shrink:0;">${initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;color:var(--ink);display:flex;align-items:center;gap:8px;">${p.name}${p.room?`<span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:400;color:var(--ink3);background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 7px;">Rm ${p.room}</span>`:''}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--ink3);margin-top:2px;">${p.dob||'DOB not set'} · ${p.facility||'No facility'} · ${p.visitType||'Visit'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        ${vd._generated ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:0.6rem;color:var(--green);background:var(--green-dim);padding:2px 8px;border-radius:10px;">✓ Note Generated</span>' : ''}
+        <span class="pc-expand" id="tv-exp-${p.id}" style="${vd._open?'transform:rotate(180deg)':''}">▼</span>
+      </div>
+    </div>
+    <div id="tv-body-${p.id}" style="display:${vd._open?'block':'none'};">
+      <div class="adm-form">
+
+        <div class="adm-section-title">Cognitive &amp; Neurological Status</div>
+        <div class="adm-grid2">
+          <div class="adm-field adm-span2">
+            <label>Alert &amp; Oriented to</label>
+            <div class="sym-row">
+              ${['Person','Place','Time','Situation'].map(o=>`<span class="sym-chip ${orientArr.includes(o)?'checked-ok':''}" onclick="tvToggleOrient(${p.id},'${o}',this)">${o}</span>`).join('')}
+            </div>
+          </div>
+          ${yn('answersQuestions','Answers simple questions & follows commands')}
+          ${yn('ambulatesIndependently','Ambulates independently')}
+          <div class="adm-field"><label>Ambulation Status</label>
+            <select onchange="tvChange(${p.id},'ambulation',this.value)" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+              <option value="">Select…</option>
+              ${['Independent','Cane','Walker','Rolling Walker','Wheelchair','Bedbound'].map(o=>`<option value="${o}" ${vd.ambulation===o?'selected':''}>${o}</option>`).join('')}
+            </select>
+          </div>
+          <div class="adm-field"><label>Fall Risk</label>
+            <select onchange="tvChange(${p.id},'fallRisk',this.value)" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+              <option value="">Select…</option>
+              ${['Low','Moderate','High'].map(o=>`<option value="${o}" ${vd.fallRisk===o?'selected':''}>${o}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="adm-section-title">Pain Assessment</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Pain Score (0–10)</label>
+            <input type="number" min="0" max="10" value="${vd.painScore||''}" onchange="tvChange(${p.id},'painScore',this.value)" placeholder="0" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+          </div>
+          <div class="adm-field"><label>Pain Location</label>
+            <input type="text" value="${esc(vd.painLocation||'')}" onchange="tvChange(${p.id},'painLocation',this.value)" placeholder="Location…" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+          </div>
+          ${parseInt(vd.painScore||0) > 0 ? `
+          <div class="adm-field"><label>What Makes It Worse</label>
+            <input type="text" value="${esc(vd.painWorse||'')}" onchange="tvChange(${p.id},'painWorse',this.value)" placeholder="Movement, pressure, activity…" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+          </div>
+          <div class="adm-field"><label>What Makes It Better</label>
+            <input type="text" value="${esc(vd.painBetter||'')}" onchange="tvChange(${p.id},'painBetter',this.value)" placeholder="Rest, medication, heat…" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+          </div>` : ''}
+        </div>
+
+        <div class="adm-section-title">Review of Systems</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;">GU — Patient reports</div>
+            <div class="sym-row">
+              ${sym('symFrequency','Frequency')}
+              ${sym('symDysuria','Dysuria')}
+              ${sym('symUrgency','Urgency')}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;">GI — Patient reports</div>
+            <div class="sym-row">
+              ${sym('symAbdPain','Abdominal pain')}
+              ${sym('symBloating','Bloating')}
+              ${sym('symNausea','Nausea')}
+              ${sym('symVomiting','Vomiting')}
+              ${sym('symDiarrhea','Diarrhea')}
+              ${sym('symConstipation','Constipation')}
+            </div>
+          </div>
+
+          <div class="adm-grid2">
+            <div class="adm-field"><label>Last Bowel Movement</label>
+              <input type="text" value="${esc(vd.lastBM||'')}" onchange="tvChange(${p.id},'lastBM',this.value)" placeholder="e.g. Yesterday, formed, without difficulty" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+            </div>
+            ${yn('weightStable','Weight stable')}
+          </div>
+
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;">General — Patient reports</div>
+            <div class="sym-row">
+              ${sym('symFatigue','Fatigue')}
+              ${sym('symDizziness','Dizziness')}
+              ${sym('symBlurredVision','Blurred vision')}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;">Cardiopulmonary — Patient reports</div>
+            <div class="sym-row">
+              ${sym('symChestPain','Chest pain')}
+              ${sym('symSOB','Shortness of breath')}
+            </div>
+          </div>
+
+          <div class="adm-grid2">
+            ${yn('sleepsWell','Sleeps throughout night without disturbance')}
+            ${yn('moodStable','Mood stable')}
+            ${yn('deniesWounds','Denies wounds')}
+          </div>
+
+        </div>
+
+        <div class="adm-section-title">Vitals</div>
+        <div class="adm-grid3">
+          <div class="adm-field"><label>BP</label><input type="text" value="${esc(vd.bp||'')}" onchange="tvChange(${p.id},'bp',this.value)" placeholder="120/80" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;"></div>
+          <div class="adm-field"><label>HR (bpm)</label><input type="text" value="${esc(vd.hr||'')}" onchange="tvChange(${p.id},'hr',this.value)" placeholder="72" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;"></div>
+          <div class="adm-field"><label>RR</label><input type="text" value="${esc(vd.rr||'')}" onchange="tvChange(${p.id},'rr',this.value)" placeholder="16" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;"></div>
+          <div class="adm-field"><label>Temp (°F)</label><input type="text" value="${esc(vd.temp||'')}" onchange="tvChange(${p.id},'temp',this.value)" placeholder="98.6" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;"></div>
+          <div class="adm-field"><label>O₂ Sat (%)</label><input type="text" value="${esc(vd.o2sat||'')}" onchange="tvChange(${p.id},'o2sat',this.value)" placeholder="97" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;"></div>
+          <div class="adm-field"><label>Weight (lbs)</label><input type="text" value="${esc(vd.weight||'')}" onchange="tvChange(${p.id},'weight',this.value)" placeholder="—" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;"></div>
+        </div>
+
+        <div class="adm-section-title">Falls</div>
+        <div class="adm-grid2">
+          ${yn('recentFall','Recent fall')}
+          <div class="adm-field"><label>Fall Details</label>
+            <input type="text" value="${esc(vd.fallDetails||'')}" onchange="tvChange(${p.id},'fallDetails',this.value)" placeholder="When, circumstances…" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+          </div>
+        </div>
+
+        <div class="adm-section-title">Recent Hospitalization</div>
+        <div class="adm-grid2">
+          ${yn('recentHosp','Recent hospitalization')}
+          <div class="adm-field"><label>Details</label>
+            <input type="text" value="${esc(vd.hospDetails||'')}" onchange="tvChange(${p.id},'hospDetails',this.value)" placeholder="Facility, reason, date…" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;width:100%;">
+          </div>
+        </div>
+
+        <div class="adm-section-title">Referrals</div>
+        <div style="padding:0 0 12px;">
+          <div class="sym-row" style="margin-bottom:8px;">
+            ${['Eval for Hospice','Eval for Therapy','Eval for Home Health','Specialist'].map(r=>`<span class="sym-chip ${(vd.referralSet||[]).includes(r)?'checked-ok':''}" onclick="tvSetReferral(${p.id},'${r}',this)">${r}</span>`).join('')}
+          </div>
+          <input type="text" value="${esc(vd.referralNotes||'')}" onchange="tvChange(${p.id},'referralNotes',this.value)" placeholder="Additional referral details…" style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;">
+        </div>
+
+        <div class="adm-section-title">Follow Up</div>
+        <div style="padding:0 0 10px;">
+          <input type="text" value="${esc(vd.followupNotes||'')}" onchange="tvChange(${p.id},'followupNotes',this.value)" placeholder="Return in 2 weeks, monitor weight, recheck labs…" style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;">
+        </div>
+
+        <div class="adm-section-title">Additional Notes</div>
+        <div style="padding:0 0 10px;">
+          <textarea rows="3" style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:10px 12px;outline:none;resize:vertical;line-height:1.6;" onchange="tvChange(${p.id},'additionalNotes',this.value)" placeholder="Assessment, plan, pending items…">${esc(vd.additionalNotes||'')}</textarea>
+        </div>
+
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding:16px 20px;background:var(--surface2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <button onclick="saveVisitData(${p.id})" style="font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 20px;background:var(--surface3);color:var(--ink);border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;">💾 Save</button>
+        <button onclick="generateVisitNote(${p.id})" id="tv-gen-btn-${p.id}"
+          style="font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 22px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:8px;">
+          <div id="tv-gen-spin-${p.id}" style="width:12px;height:12px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;"></div>
+          <span id="tv-gen-txt-${p.id}">✨ Generate Visit Note</span>
+        </button>
+        <button onclick="markComplete(${p.id})" style="font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 20px;background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:var(--r);cursor:pointer;">✓ Complete</button>
+        ${!localStorage.getItem('kt_api_key') ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:0.6rem;color:var(--ink3);">⚠ Set API key in Bulk Import first</span>' : ''}
+      </div>
+
+      ${vd._generatedNote ? `
+      <div style="margin:0 20px 20px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;">
+        <div style="background:var(--surface3);padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;color:var(--accent);">📄 Visit Note — ${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+          <button onclick="copyVisitNote(${p.id})" style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:3px 10px;background:none;border:1px solid var(--border2);border-radius:4px;color:var(--ink3);cursor:pointer;">Copy</button>
+        </div>
+        <pre id="tv-note-text-${p.id}" style="white-space:pre-wrap;font-family:'Epilogue',sans-serif;font-size:0.8rem;line-height:1.65;color:var(--ink);padding:16px;margin:0;">${esc(vd._generatedNote)}</pre>
+      </div>` : ''}
+
+    </div>
+  </div>`;
+}
+
+function toggleTvCard(id) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.visitData) p.visitData = {};
+  p.visitData._open = !p.visitData._open;
+  const body = document.getElementById('tv-body-'+id);
+  const exp = document.getElementById('tv-exp-'+id);
+  if (body) body.style.display = p.visitData._open ? 'block' : 'none';
+  if (exp) exp.style.transform = p.visitData._open ? 'rotate(180deg)' : '';
+}
+
+async function generateVisitNote(id) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.visitData) p.visitData = {};
+  const vd = p.visitData;
+
+  const btn = document.getElementById('tv-gen-btn-'+id);
+  const spin = document.getElementById('tv-gen-spin-'+id);
+  const txt = document.getElementById('tv-gen-txt-'+id);
+  if (btn) btn.disabled = true;
+  if (spin) spin.style.display = 'block';
+  if (txt) txt.textContent = 'Generating…';
+
+  const orientStr = (vd.orientation||[]).length ? `oriented to ${(vd.orientation||[]).join(', ')}` : 'orientation not assessed';
+  const symsPresent = ['symFrequency:frequency','symDysuria:dysuria','symUrgency:urgency','symAbdPain:abdominal pain','symBloating:bloating','symNausea:nausea','symVomiting:vomiting','symDiarrhea:diarrhea','symConstipation:constipation','symFatigue:fatigue','symDizziness:dizziness','symBlurredVision:blurred vision','symChestPain:chest pain','symSOB:shortness of breath'].filter(s=>vd[s.split(':')[0]]).map(s=>s.split(':')[1]);
+  const symsDenied = ['symFrequency:frequency','symDysuria:dysuria','symUrgency:urgency','symAbdPain:abdominal pain','symBloating:bloating','symNausea:nausea','symVomiting:vomiting','symDiarrhea:diarrhea','symConstipation:constipation','symFatigue:fatigue','symDizziness:dizziness','symBlurredVision:blurred vision','symChestPain:chest pain','symSOB:shortness of breath'].filter(s=>!vd[s.split(':')[0]]).map(s=>s.split(':')[1]);
+
+  const prompt = `You are a nurse practitioner writing a clinical visit note for a facility rounding visit. Write a professional, concise SOAP note suitable for an EMR chart based on the data below.
+
+Patient: ${p.name}
+DOB: ${p.dob||'—'}
+Facility: ${p.facility||'—'}
+Visit Type: ${p.visitType||'Established Visit'}
+Visit Date: ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
+Chief Complaint: ${p.cc||'Routine rounding visit'}
+
+--- VISIT DATA ---
+COGNITIVE/NEURO:
+- Alert & ${orientStr}
+- Answers simple questions and follows commands: ${vd.answersQuestions||'not assessed'}
+- Ambulates independently: ${vd.ambulatesIndependently||'not assessed'}
+- Fall risk: ${vd.fallRisk||'not assessed'}
+
+MOBILITY:
+- Ambulation: ${vd.ambulation||'not assessed'}
+
+PAIN:
+- Score: ${vd.painScore||'0'}/10${vd.painLocation ? ', location: '+vd.painLocation : ''}${parseInt(vd.painScore||0)>0 && vd.painWorse ? '\n- Aggravated by: '+vd.painWorse : ''}${parseInt(vd.painScore||0)>0 && vd.painBetter ? '\n- Relieved by: '+vd.painBetter : ''}
+
+REVIEW OF SYSTEMS:
+${symsPresent.length ? '- Reports: '+symsPresent.join(', ') : '- No symptoms reported'}
+${symsDenied.length ? '- Denies: '+symsDenied.join(', ') : ''}
+- Last bowel movement: ${vd.lastBM||'not reported'}
+- Weight stable: ${vd.weightStable||'not assessed'}
+- Sleep: ${vd.sleepsWell === 'Yes' ? 'sleeps throughout night without disturbance' : vd.sleepsWell === 'No' ? 'reports sleep disturbances' : 'not assessed'}
+- Mood: ${vd.moodStable === 'Yes' ? 'stable' : vd.moodStable === 'No' ? 'not stable' : 'not assessed'}
+- Wounds: ${vd.deniesWounds === 'Yes' ? 'denies wounds' : vd.deniesWounds === 'No' ? 'wound(s) present' : 'not assessed'}
+
+VITALS:
+BP: ${vd.bp||'—'} | HR: ${vd.hr||'—'} | RR: ${vd.rr||'—'} | Temp: ${vd.temp||'—'}°F | O2 Sat: ${vd.o2sat||'—'}% | Weight: ${vd.weight||'—'} lbs
+
+FALLS:
+- Recent fall: ${vd.recentFall||'not assessed'}${vd.fallDetails ? ' — '+vd.fallDetails : ''}
+
+RECENT HOSPITALIZATION:
+- Recent hospitalization: ${vd.recentHosp||'not assessed'}${vd.hospDetails ? ' — '+vd.hospDetails : ''}
+
+REFERRALS: ${(vd.referralSet||[]).length ? (vd.referralSet||[]).join(', ') : 'None'}${vd.referralNotes ? ' — '+vd.referralNotes : ''}
+
+FOLLOW UP: ${vd.followupNotes||'None'}
+
+ADDITIONAL NOTES: ${vd.additionalNotes||'None'}
+--- END DATA ---
+
+Write a complete SOAP note. For Subjective, write in proper clinical narrative form (e.g. "Patient is a [age/gender] presenting for routine rounding visit. Patient is alert and oriented to... Denies chest pain, shortness of breath..."). For Objective include vitals. For Assessment summarize the clinical picture. For Plan include follow-up recommendations. Be professional and concise.`;
+
+  try {
+    const note = await callAI(prompt);
+    vd._generatedNote = note;
+    vd._generated = true;
+    // Mirror generated visit note → clinical notes in patient card
+    p.notes = note;
+    p.visitData.additionalNotes = note;
+    saveState();
+    renderTodayVisits();
+    const p2 = state.patients.find(x=>x.id===id);
+    if (p2 && p2.visitData) p2.visitData._open = true;
+    const body = document.getElementById('tv-body-'+id);
+    const exp = document.getElementById('tv-exp-'+id);
+    if (body) body.style.display = 'block';
+    if (exp) exp.style.transform = 'rotate(180deg)';
+    toast('✓ Visit note generated');
+  } catch(err) {
+    toast('Error: ' + err.message);
+    if (btn) btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (txt) txt.textContent = '✨ Generate Visit Note';
+  }
+}
+
+function copyVisitNote(id) {
+  const el = document.getElementById('tv-note-text-'+id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(()=>toast('Note copied to clipboard ✓')).catch(()=>toast('Copy failed'));
+}
+
+// ── ADMISSIONS ────────────────────────────────────────────────────────────────
+function renderAdmissions() {
+  const el = document.getElementById('main-content');
+  const newPts = state.patients.filter(p => p.flags && p.flags.newpt);
+  let html = `
+    <div class="content-header">
+      <div>
+        <div class="view-title">Admissions</div>
+        <div class="view-sub">${newPts.length} new patient${newPts.length!==1?'s':''} flagged for admission assessment</div>
+      </div>
+    </div>`;
+  if (!newPts.length) {
+    html += `<div class="empty"><div class="empty-icon">🏥</div><p>No new patients flagged.<br>Flag a patient as "⭐ New Patient" to add them here.</p></div>`;
+    el.innerHTML = html;
+    return;
+  }
+  html += newPts.map(p => admissionCardHTML(p)).join('');
+  el.innerHTML = html;
+}
+
+function admissionCardHTML(p) {
+  const ad = p.admissionData || {};
+  const initials = p.name.split(/[\s,]+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const avClass = 'av' + (p.id % 5);
+  const open = ad._open ? 'open' : '';
+  return `
+  <div class="adm-card" id="adm-${p.id}">
+    <div class="adm-header" onclick="toggleAdmCard(${p.id})">
+      <div class="pc-avatar ${avClass}" style="width:36px;height:36px;font-size:0.82rem;flex-shrink:0;">${initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.95rem;color:var(--ink);display:flex;align-items:center;gap:8px;">${p.name}${p.room?`<span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:400;color:var(--ink3);background:var(--surface3);border:1px solid var(--border2);border-radius:4px;padding:1px 7px;">Rm ${p.room}</span>`:''}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--ink3);margin-top:2px;">${p.dob||'DOB not set'} · ${p.facility||'No facility'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        ${ad._generated ? '<span style="font-family:\'JetBrains Mono\',monospace;font-size:0.6rem;color:var(--green);background:var(--green-dim);padding:2px 8px;border-radius:10px;">✓ Note Generated</span>' : ''}
+        <span class="pc-expand" id="adm-exp-${p.id}" style="${ad._open?'transform:rotate(180deg)':''}">▼</span>
+      </div>
+    </div>
+    <div class="adm-body" id="adm-body-${p.id}" style="display:${ad._open?'block':'none'};">
+      <div class="adm-form" id="adm-form-${p.id}">
+
+        <div class="adm-section-title">Patient Information</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Sex / Gender</label><select id="ad-${p.id}-gender" onchange="admChange(${p.id},'gender',this.value)">
+            <option value="">Select…</option>
+            <option value="Male" ${ad.gender==='Male'?'selected':''}>Male</option>
+            <option value="Female" ${ad.gender==='Female'?'selected':''}>Female</option>
+            <option value="Other" ${ad.gender==='Other'?'selected':''}>Other</option>
+          </select></div>
+          <div class="adm-field"><label>Phone</label><input type="text" id="ad-${p.id}-phone" value="${esc(ad.phone||'')}" onchange="admChange(${p.id},'phone',this.value)" placeholder="(555) 555-5555"></div>
+          <div class="adm-field adm-span2"><label>Address</label><input type="text" id="ad-${p.id}-address" value="${esc(ad.address||'')}" onchange="admChange(${p.id},'address',this.value)" placeholder="Street, City, State, ZIP"></div>
+          <div class="adm-field"><label>Emergency Contact</label><input type="text" id="ad-${p.id}-emergencyContact" value="${esc(ad.emergencyContact||'')}" onchange="admChange(${p.id},'emergencyContact',this.value)" placeholder="Name – Relationship – Phone"></div>
+          <div class="adm-field"><label>Insurance</label><input type="text" id="ad-${p.id}-insurance" value="${esc(ad.insurance||'')}" onchange="admChange(${p.id},'insurance',this.value)" placeholder="Medicare, Medicaid, etc."></div>
+        </div>
+
+        <div class="adm-section-title">Cognitive &amp; Neurological Status</div>
+        <div class="adm-grid2">
+          <div class="adm-field adm-span2"><label>Orientation (check all that apply)</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+              ${['Person','Place','Time','Situation'].map(o=>`<label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;cursor:pointer;font-weight:400;"><input type="checkbox" id="ad-${p.id}-orient-${o}" ${(ad.orientation||[]).includes(o)?'checked':''} onchange="admCheckArray(${p.id},'orientation','${o}',this.checked)"> ${o}</label>`).join('')}
+            </div>
+          </div>
+          <div class="adm-field"><label>Memory</label><select id="ad-${p.id}-memory" onchange="admChange(${p.id},'memory',this.value)">
+            <option value="">Select…</option>
+            ${['Intact','Mild impairment','Moderate impairment','Severe impairment'].map(o=>`<option value="${o}" ${ad.memory===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Communication</label><select id="ad-${p.id}-communication" onchange="admChange(${p.id},'communication',this.value)">
+            <option value="">Select…</option>
+            ${['Verbal – intact','Verbal – impaired','Non-verbal','Uses AAC device'].map(o=>`<option value="${o}" ${ad.communication===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field adm-span2"><label>Cognitive Impairments / Diagnoses</label><input type="text" id="ad-${p.id}-cognitiveImpairments" value="${esc(ad.cognitiveImpairments||'')}" onchange="admChange(${p.id},'cognitiveImpairments',this.value)" placeholder="e.g. Dementia, TBI, Delirium…"></div>
+        </div>
+
+        <div class="adm-section-title">Mobility &amp; Functional Status</div>
+        <div class="adm-grid2">
+          <div class="adm-field adm-span2"><label>Ambulation</label><select id="ad-${p.id}-ambulation" onchange="admChange(${p.id},'ambulation',this.value)">
+            <option value="">Select…</option>
+            ${['Independent','Cane','Walker','Rollator','Wheelchair','Bedbound'].map(o=>`<option value="${o}" ${ad.ambulation===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Bathing</label><select id="ad-${p.id}-adlBathing" onchange="admChange(${p.id},'adlBathing',this.value)">
+            <option value="">Select…</option>
+            <option value="Independent" ${ad.adlBathing==='Independent'?'selected':''}>Independent</option>
+            <option value="Needs Assistance" ${ad.adlBathing==='Needs Assistance'?'selected':''}>Needs Assistance</option>
+          </select></div>
+          <div class="adm-field"><label>Dressing</label><select id="ad-${p.id}-adlDressing" onchange="admChange(${p.id},'adlDressing',this.value)">
+            <option value="">Select…</option>
+            <option value="Independent" ${ad.adlDressing==='Independent'?'selected':''}>Independent</option>
+            <option value="Needs Assistance" ${ad.adlDressing==='Needs Assistance'?'selected':''}>Needs Assistance</option>
+          </select></div>
+          <div class="adm-field"><label>Toileting</label><select id="ad-${p.id}-adlToileting" onchange="admChange(${p.id},'adlToileting',this.value)">
+            <option value="">Select…</option>
+            <option value="Independent" ${ad.adlToileting==='Independent'?'selected':''}>Independent</option>
+            <option value="Needs Assistance" ${ad.adlToileting==='Needs Assistance'?'selected':''}>Needs Assistance</option>
+          </select></div>
+          <div class="adm-field"><label>Feeding</label><select id="ad-${p.id}-adlFeeding" onchange="admChange(${p.id},'adlFeeding',this.value)">
+            <option value="">Select…</option>
+            <option value="Independent" ${ad.adlFeeding==='Independent'?'selected':''}>Independent</option>
+            <option value="Needs Assistance" ${ad.adlFeeding==='Needs Assistance'?'selected':''}>Needs Assistance</option>
+          </select></div>
+        </div>
+
+        <div class="adm-section-title">Fall Risk</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Fall Risk</label><select id="ad-${p.id}-fallRisk" onchange="admChange(${p.id},'fallRisk',this.value)">
+            <option value="">Select…</option>
+            ${['Low','Moderate','High'].map(o=>`<option value="${o}" ${ad.fallRisk===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Fall History (past 6 months)</label><input type="text" id="ad-${p.id}-fallHistory" value="${esc(ad.fallHistory||'')}" onchange="admChange(${p.id},'fallHistory',this.value)" placeholder="Number of falls, circumstances…"></div>
+        </div>
+
+        <div class="adm-section-title">Recent Healthcare Utilization</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Recent Hospitalization</label><select id="ad-${p.id}-recentHospital" onchange="admChange(${p.id},'recentHospital',this.value)">
+            <option value="">Select…</option><option value="Yes" ${ad.recentHospital==='Yes'?'selected':''}>Yes</option><option value="No" ${ad.recentHospital==='No'?'selected':''}>No</option>
+          </select></div>
+          <div class="adm-field"><label>Hospital Details</label><input type="text" id="ad-${p.id}-hospitalDetails" value="${esc(ad.hospitalDetails||'')}" onchange="admChange(${p.id},'hospitalDetails',this.value)" placeholder="Facility, dates, diagnosis…"></div>
+          <div class="adm-field"><label>ER Visit (past 30 days)</label><select id="ad-${p.id}-erVisit" onchange="admChange(${p.id},'erVisit',this.value)">
+            <option value="">Select…</option><option value="Yes" ${ad.erVisit==='Yes'?'selected':''}>Yes</option><option value="No" ${ad.erVisit==='No'?'selected':''}>No</option>
+          </select></div>
+          <div class="adm-field"><label>ER Details</label><input type="text" id="ad-${p.id}-erDetails" value="${esc(ad.erDetails||'')}" onchange="admChange(${p.id},'erDetails',this.value)" placeholder="Facility, reason…"></div>
+          <div class="adm-field"><label>Prior SNF Stay</label><select id="ad-${p.id}-priorSNF" onchange="admChange(${p.id},'priorSNF',this.value)">
+            <option value="">Select…</option><option value="Yes" ${ad.priorSNF==='Yes'?'selected':''}>Yes</option><option value="No" ${ad.priorSNF==='No'?'selected':''}>No</option>
+          </select></div>
+          <div class="adm-field"><label>SNF Details</label><input type="text" id="ad-${p.id}-snfDetails" value="${esc(ad.snfDetails||'')}" onchange="admChange(${p.id},'snfDetails',this.value)" placeholder="Facility, length of stay…"></div>
+        </div>
+
+        <div class="adm-section-title">Genitourinary / GI</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Urinary Continence</label><select id="ad-${p.id}-urinaryContinence" onchange="admChange(${p.id},'urinaryContinence',this.value)">
+            <option value="">Select…</option>
+            ${['Continent','Incontinent – stress','Incontinent – urge','Incontinent – functional','Foley catheter','Suprapubic catheter'].map(o=>`<option value="${o}" ${ad.urinaryContinence===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Bowel Status</label><select id="ad-${p.id}-bowelStatus" onchange="admChange(${p.id},'bowelStatus',this.value)">
+            <option value="">Select…</option>
+            ${['Continent','Incontinent','Constipation','Diarrhea','Ostomy'].map(o=>`<option value="${o}" ${ad.bowelStatus===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field adm-span2"><label>GU/GI Notes</label><input type="text" id="ad-${p.id}-gugiNotes" value="${esc(ad.gugiNotes||'')}" onchange="admChange(${p.id},'gugiNotes',this.value)" placeholder="Additional details…"></div>
+        </div>
+
+        <div class="adm-section-title">Nutrition</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Weight (lbs)</label><input type="text" id="ad-${p.id}-weight" value="${esc(ad.weight||'')}" onchange="admChange(${p.id},'weight',this.value)" placeholder="e.g. 155"></div>
+          <div class="adm-field"><label>Height</label><input type="text" id="ad-${p.id}-height" value="${esc(ad.height||'')}" onchange="admChange(${p.id},'height',this.value)" placeholder="e.g. 5'6\""></div>
+          <div class="adm-field"><label>Appetite</label><select id="ad-${p.id}-appetite" onchange="admChange(${p.id},'appetite',this.value)">
+            <option value="">Select…</option>
+            ${['Good','Fair','Poor','NPO','Tube feeding'].map(o=>`<option value="${o}" ${ad.appetite===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Diet Type</label><input type="text" id="ad-${p.id}-dietType" value="${esc(ad.dietType||'')}" onchange="admChange(${p.id},'dietType',this.value)" placeholder="Regular, pureed, diabetic…"></div>
+          <div class="adm-field adm-span2"><label>Nutrition Notes</label><input type="text" id="ad-${p.id}-nutritionNotes" value="${esc(ad.nutritionNotes||'')}" onchange="admChange(${p.id},'nutritionNotes',this.value)" placeholder="Dysphagia, supplements, weight loss…"></div>
+        </div>
+
+        <div class="adm-section-title">Cardiopulmonary</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Respiratory Status</label><select id="ad-${p.id}-respiratoryStatus" onchange="admChange(${p.id},'respiratoryStatus',this.value)">
+            <option value="">Select…</option>
+            ${['Clear / unlabored','Mild SOB','Moderate SOB','Requires O₂','Mechanical ventilation'].map(o=>`<option value="${o}" ${ad.respiratoryStatus===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>O₂ Requirement</label><input type="text" id="ad-${p.id}-o2Req" value="${esc(ad.o2Req||'')}" onchange="admChange(${p.id},'o2Req',this.value)" placeholder="e.g. 2L NC at rest"></div>
+          <div class="adm-field adm-span2"><label>Cardiovascular / Pulmonary Notes</label><input type="text" id="ad-${p.id}-cardioNotes" value="${esc(ad.cardioNotes||'')}" onchange="admChange(${p.id},'cardioNotes',this.value)" placeholder="Edema, murmur, arrhythmia, wheezing…"></div>
+        </div>
+
+        <div class="adm-section-title">Sleep</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Sleep Quality</label><select id="ad-${p.id}-sleepQuality" onchange="admChange(${p.id},'sleepQuality',this.value)">
+            <option value="">Select…</option>
+            ${['Good','Fair','Poor','Insomnia','Sleep apnea'].map(o=>`<option value="${o}" ${ad.sleepQuality===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Sleep Notes</label><input type="text" id="ad-${p.id}-sleepNotes" value="${esc(ad.sleepNotes||'')}" onchange="admChange(${p.id},'sleepNotes',this.value)" placeholder="CPAP, medications, nighttime behavior…"></div>
+        </div>
+
+        <div class="adm-section-title">Sensory</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Vision</label><select id="ad-${p.id}-vision" onchange="admChange(${p.id},'vision',this.value)">
+            <option value="">Select…</option>
+            ${['Intact','Glasses','Impaired','Legally blind'].map(o=>`<option value="${o}" ${ad.vision===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Hearing</label><select id="ad-${p.id}-hearing" onchange="admChange(${p.id},'hearing',this.value)">
+            <option value="">Select…</option>
+            ${['Intact','Hearing aid','Impaired','Deaf'].map(o=>`<option value="${o}" ${ad.hearing===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+        </div>
+
+        <div class="adm-section-title">Skin</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Pressure Injury / Wound Present</label><select id="ad-${p.id}-skinWound" onchange="admChange(${p.id},'skinWound',this.value)">
+            <option value="">Select…</option><option value="Yes" ${ad.skinWound==='Yes'?'selected':''}>Yes</option><option value="No" ${ad.skinWound==='No'?'selected':''}>No</option>
+          </select></div>
+          <div class="adm-field"><label>Skin / Wound Notes</label><input type="text" id="ad-${p.id}-skinNotes" value="${esc(ad.skinNotes||'')}" onchange="admChange(${p.id},'skinNotes',this.value)" placeholder="Stage, location, treatment…"></div>
+        </div>
+
+        <div class="adm-section-title">Pain Assessment</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Pain Score (0–10)</label><input type="number" min="0" max="10" id="ad-${p.id}-painScore" value="${ad.painScore||''}" onchange="admChange(${p.id},'painScore',this.value)" placeholder="0"></div>
+          <div class="adm-field"><label>Pain Location</label><input type="text" id="ad-${p.id}-painLocation" value="${esc(ad.painLocation||'')}" onchange="admChange(${p.id},'painLocation',this.value)" placeholder="Back, knee, diffuse…"></div>
+          <div class="adm-field adm-span2"><label>Pain Notes (quality, frequency, aggravating/relieving)</label><input type="text" id="ad-${p.id}-painNotes" value="${esc(ad.painNotes||'')}" onchange="admChange(${p.id},'painNotes',this.value)" placeholder="Dull ache, worse with movement, relieved by rest…"></div>
+        </div>
+
+        <div class="adm-section-title">Code Status</div>
+        <div class="adm-grid2">
+          <div class="adm-field"><label>Code Status</label><select id="ad-${p.id}-codeStatus" onchange="admChange(${p.id},'codeStatus',this.value)">
+            <option value="">Select…</option>
+            ${['Full Code','DNR','DNI','DNR/DNI','Comfort Care Only'].map(o=>`<option value="${o}" ${ad.codeStatus===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Advanced Directive on File</label><select id="ad-${p.id}-advDirective" onchange="admChange(${p.id},'advDirective',this.value)">
+            <option value="">Select…</option><option value="Yes" ${ad.advDirective==='Yes'?'selected':''}>Yes</option><option value="No" ${ad.advDirective==='No'?'selected':''}>No</option><option value="Pending" ${ad.advDirective==='Pending'?'selected':''}>Pending</option>
+          </select></div>
+        </div>
+
+        <div class="adm-section-title">Medical History</div>
+        <div class="adm-grid2">
+          <div class="adm-field adm-span2"><label>Past Medical History</label><textarea id="ad-${p.id}-medHistory" rows="3" onchange="admChange(${p.id},'medHistory',this.value)" placeholder="HTN, DM2, CAD, CHF, COPD, CKD, Dementia…">${esc(ad.medHistory||'')}</textarea></div>
+          <div class="adm-field adm-span2"><label>Current Medications</label><textarea id="ad-${p.id}-currentMeds" rows="3" onchange="admChange(${p.id},'currentMeds',this.value)" placeholder="List medications with doses…">${esc(ad.currentMeds||'')}</textarea></div>
+          <div class="adm-field adm-span2"><label>Allergies (drug, food, environmental)</label><input type="text" id="ad-${p.id}-allergies" value="${esc(ad.allergies||'')}" onchange="admChange(${p.id},'allergies',this.value)" placeholder="NKDA or list with reactions…"></div>
+        </div>
+
+        <div class="adm-section-title">Surgical History</div>
+        <div class="adm-grid2">
+          <div class="adm-field adm-span2"><label>Past Surgical History</label><textarea id="ad-${p.id}-surgicalHistory" rows="2" onchange="admChange(${p.id},'surgicalHistory',this.value)" placeholder="CABG 2018, hip replacement 2020…">${esc(ad.surgicalHistory||'')}</textarea></div>
+        </div>
+
+        <div class="adm-section-title">Family &amp; Social History</div>
+        <div class="adm-grid2">
+          <div class="adm-field adm-span2"><label>Family History</label><input type="text" id="ad-${p.id}-familyHistory" value="${esc(ad.familyHistory||'')}" onchange="admChange(${p.id},'familyHistory',this.value)" placeholder="CAD, cancer, diabetes in first-degree relatives…"></div>
+          <div class="adm-field"><label>Tobacco Use</label><select id="ad-${p.id}-tobacco" onchange="admChange(${p.id},'tobacco',this.value)">
+            <option value="">Select…</option>
+            ${['Never','Former smoker','Current smoker'].map(o=>`<option value="${o}" ${ad.tobacco===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Alcohol Use</label><select id="ad-${p.id}-alcohol" onchange="admChange(${p.id},'alcohol',this.value)">
+            <option value="">Select…</option>
+            ${['None','Occasional','Moderate','Heavy','Former'].map(o=>`<option value="${o}" ${ad.alcohol===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Living Situation</label><select id="ad-${p.id}-livingSituation" onchange="admChange(${p.id},'livingSituation',this.value)">
+            <option value="">Select…</option>
+            ${['SNF / Assisted living','Lives alone','Lives with family','Lives with spouse','Group home'].map(o=>`<option value="${o}" ${ad.livingSituation===o?'selected':''}>${o}</option>`).join('')}
+          </select></div>
+          <div class="adm-field"><label>Prior Occupation</label><input type="text" id="ad-${p.id}-occupation" value="${esc(ad.occupation||'')}" onchange="admChange(${p.id},'occupation',this.value)" placeholder="Retired teacher, engineer…"></div>
+        </div>
+
+        <div class="adm-section-title">Therapy Needs</div>
+        <div class="adm-grid2">
+          <div class="adm-field adm-span2"><label>Therapy Ordered (check all that apply)</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+              ${['Physical Therapy (PT)','Occupational Therapy (OT)','Speech Therapy (ST)'].map(o=>`<label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;cursor:pointer;font-weight:400;"><input type="checkbox" ${(ad.therapyOrders||[]).includes(o)?'checked':''} onchange="admCheckArray(${p.id},'therapyOrders','${o}',this.checked)"> ${o}</label>`).join('')}
+            </div>
+          </div>
+          <div class="adm-field adm-span2"><label>Therapy Goals / Notes</label><input type="text" id="ad-${p.id}-therapyNotes" value="${esc(ad.therapyNotes||'')}" onchange="admChange(${p.id},'therapyNotes',this.value)" placeholder="Improve ambulation, strengthen UE, swallow eval…"></div>
+        </div>
+
+        <div class="adm-section-title">Vital Signs</div>
+        <div class="adm-grid3">
+          <div class="adm-field"><label>BP</label><input type="text" id="ad-${p.id}-bp" value="${esc(ad.bp||'')}" onchange="admChange(${p.id},'bp',this.value)" placeholder="120/80"></div>
+          <div class="adm-field"><label>HR (bpm)</label><input type="text" id="ad-${p.id}-hr" value="${esc(ad.hr||'')}" onchange="admChange(${p.id},'hr',this.value)" placeholder="72"></div>
+          <div class="adm-field"><label>RR (breaths/min)</label><input type="text" id="ad-${p.id}-rr" value="${esc(ad.rr||'')}" onchange="admChange(${p.id},'rr',this.value)" placeholder="16"></div>
+          <div class="adm-field"><label>Temp (°F)</label><input type="text" id="ad-${p.id}-temp" value="${esc(ad.temp||'')}" onchange="admChange(${p.id},'temp',this.value)" placeholder="98.6"></div>
+          <div class="adm-field"><label>O₂ Sat (%)</label><input type="text" id="ad-${p.id}-o2sat" value="${esc(ad.o2sat||'')}" onchange="admChange(${p.id},'o2sat',this.value)" placeholder="97"></div>
+          <div class="adm-field"><label>Weight at Admission</label><input type="text" id="ad-${p.id}-admWeight" value="${esc(ad.admWeight||'')}" onchange="admChange(${p.id},'admWeight',this.value)" placeholder="155 lbs"></div>
+        </div>
+
+        <div class="adm-section-title">Additional Notes</div>
+        <div style="padding:0 0 10px;">
+          <textarea id="ad-${p.id}-additionalNotes" rows="4" style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:10px 12px;outline:none;resize:vertical;line-height:1.6;" onchange="admChange(${p.id},'additionalNotes',this.value)" placeholder="Any additional clinical observations, pending workup, family meetings, care plan notes…">${esc(ad.additionalNotes||'')}</textarea>
+        </div>
+
+        <div class="adm-section-title">Follow Up</div>
+        <div style="padding:0 0 10px;">
+          <input type="text" id="ad-${p.id}-followup" value="${esc(ad.followup||'')}" onchange="admChange(${p.id},'followup',this.value)" placeholder="Return in 2 weeks, recheck labs, monitor weight…" style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:7px 10px;outline:none;">
+        </div>
+
+        <div class="adm-section-title">Additional Information</div>
+        <div style="padding:0 0 10px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--ink3);letter-spacing:0.06em;margin-bottom:6px;">Paste any additional records, history, or information to be included in the note</div>
+          <textarea id="ad-${p.id}-pastedInfo" rows="6" style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'Epilogue',sans-serif;font-size:0.82rem;padding:10px 12px;outline:none;resize:vertical;line-height:1.6;" onchange="admChange(${p.id},'pastedInfo',this.value)" placeholder="Paste prior records, referral notes, lab results, discharge summaries, diagnoses, ICD codes…">${esc(ad.pastedInfo||'')}</textarea>
+        </div>
+
+      </div><!-- end adm-form -->
+
+      <div style="border-top:1px solid var(--border);padding:16px 20px;background:var(--surface2);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <button onclick="saveAdmission(${p.id})" style="font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 20px;background:var(--surface3);color:var(--ink);border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;">💾 Save</button>
+        <button onclick="generateAdmissionNote(${p.id})" id="adm-gen-btn-${p.id}"
+          style="font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 22px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:8px;">
+          <div id="adm-gen-spin-${p.id}" style="width:12px;height:12px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;"></div>
+          <span id="adm-gen-txt-${p.id}">✨ Generate Admission Note</span>
+        </button>
+        <button onclick="markComplete(${p.id})" style="font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 20px;background:var(--green-dim);color:var(--green);border:1px solid var(--green);border-radius:var(--r);cursor:pointer;">✓ Complete</button>
+        <div id="adm-api-note-${p.id}" style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--ink3);">
+          ${!localStorage.getItem('kt_api_key') ? '⚠ Set your API key in Bulk Import first' : ''}
+        </div>
+      </div>
+
+      ${ad._generatedNote ? `
+      <div id="adm-note-${p.id}" style="margin:0 20px 20px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;">
+        <div style="background:var(--surface3);padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;color:var(--accent);">📄 Generated Admission Note</span>
+          <button onclick="copyAdmNote(${p.id})" style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:3px 10px;background:none;border:1px solid var(--border2);border-radius:4px;color:var(--ink3);cursor:pointer;">Copy</button>
+        </div>
+        <pre id="adm-note-text-${p.id}" style="white-space:pre-wrap;font-family:'Epilogue',sans-serif;font-size:0.8rem;line-height:1.65;color:var(--ink);padding:16px;margin:0;">${esc(ad._generatedNote)}</pre>
+      </div>` : ''}
+
+    </div><!-- end adm-body -->
+  </div>`;
+}
+
+function toggleAdmCard(id) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.admissionData) p.admissionData = {};
+  p.admissionData._open = !p.admissionData._open;
+  // Toggle DOM directly without full re-render
+  const body = document.getElementById('adm-body-'+id);
+  const exp = document.getElementById('adm-exp-'+id);
+  if (body) body.style.display = p.admissionData._open ? 'block' : 'none';
+  if (exp) exp.style.transform = p.admissionData._open ? 'rotate(180deg)' : '';
+}
+
+function admChange(id, field, val) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.admissionData) p.admissionData = {};
+  p.admissionData[field] = val;
+  // Auto-sync nutrition weight → vital signs weight
+  if (field === 'weight') {
+    p.admissionData.admWeight = val;
+    const admWeightEl = document.getElementById('ad-'+id+'-admWeight');
+    if (admWeightEl) admWeightEl.value = val;
+  }
+  // Sync follow-up → patient card follow up field
+  if (field === 'followup') {
+    p.followupDetails = val;
+    if (!p.flags) p.flags = {};
+    p.flags.followup = val.trim().length > 0;
+  }
+}
+
+function admCheckArray(id, field, val, checked) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.admissionData) p.admissionData = {};
+  if (!Array.isArray(p.admissionData[field])) p.admissionData[field] = [];
+  if (checked) { if (!p.admissionData[field].includes(val)) p.admissionData[field].push(val); }
+  else { p.admissionData[field] = p.admissionData[field].filter(v=>v!==val); }
+}
+
+function saveAdmission(id) {
+  saveState();
+  toast('Admission data saved ✓');
+}
+
+async function generateAdmissionNote(id) {
+  const p = state.patients.find(x=>x.id===id);
+  if (!p) return;
+  if (!p.admissionData) p.admissionData = {};
+  const ad = p.admissionData;
+
+  const btn = document.getElementById('adm-gen-btn-'+id);
+  const spin = document.getElementById('adm-gen-spin-'+id);
+  const txt = document.getElementById('adm-gen-txt-'+id);
+  if (btn) btn.disabled = true;
+  if (spin) spin.style.display = 'block';
+  if (txt) txt.textContent = 'Generating…';
+
+  const prompt = `Using the newest information, additional notes, labs, and additional information, and diagnoses, choose the top 5-7 most important diagnoses, with newest information being a minimum of 1 of those diagnoses if applicable, and write a detailed HISTORY OF PRESENT ILLNESS note for primary care visit organized by separate diagnosis. Then write a complete full assessment and plan (A&P) with the ICD codes for each diagnosis chosen with a minimum of one sentence for the assessment part of the A&P using the Medicare Advantage ICD-10-CM Quick Reference Code Guide 2025 as a guideline. Then list any additional ICD codes that could be added if appropriate, then list any discrepancies if present, then write any treatments that are needed and list any labs that should be ordered.
+
+Use professional clinical language suitable for a primary care medical chart.
+
+Patient: ${p.name}
+Date of Birth: ${p.dob || 'Not provided'}
+Facility: ${p.facility || 'Not provided'}
+Visit Type: ${p.visitType || 'New Patient'}
+Chief Complaint: ${p.cc || 'Not provided'}
+
+--- ASSESSMENT DATA ---
+Sex/Gender: ${ad.gender||'—'}
+Phone: ${ad.phone||'—'}
+Address: ${ad.address||'—'}
+Emergency Contact: ${ad.emergencyContact||'—'}
+Insurance: ${ad.insurance||'—'}
+
+Orientation: ${(ad.orientation||[]).join(', ')||'Not assessed'}
+Memory: ${ad.memory||'—'}
+Communication: ${ad.communication||'—'}
+Cognitive Impairments: ${ad.cognitiveImpairments||'—'}
+
+Ambulation: ${ad.ambulation||'—'}
+ADLs: Bathing – ${ad.adlBathing||'—'}, Dressing – ${ad.adlDressing||'—'}, Toileting – ${ad.adlToileting||'—'}, Feeding – ${ad.adlFeeding||'—'}
+
+Fall Risk: ${ad.fallRisk||'—'}
+Fall History: ${ad.fallHistory||'—'}
+
+Recent Hospitalization: ${ad.recentHospital||'—'} ${ad.hospitalDetails||''}
+ER Visit (30 days): ${ad.erVisit||'—'} ${ad.erDetails||''}
+Prior SNF: ${ad.priorSNF||'—'} ${ad.snfDetails||''}
+
+Urinary Continence: ${ad.urinaryContinence||'—'}
+Bowel Status: ${ad.bowelStatus||'—'}
+GU/GI Notes: ${ad.gugiNotes||'—'}
+
+Weight: ${ad.weight||'—'} Height: ${ad.height||'—'}
+Appetite: ${ad.appetite||'—'} Diet: ${ad.dietType||'—'}
+Nutrition Notes: ${ad.nutritionNotes||'—'}
+
+Respiratory Status: ${ad.respiratoryStatus||'—'} O₂ Req: ${ad.o2Req||'—'}
+Cardiopulmonary Notes: ${ad.cardioNotes||'—'}
+
+Sleep: ${ad.sleepQuality||'—'} ${ad.sleepNotes||''}
+Vision: ${ad.vision||'—'} Hearing: ${ad.hearing||'—'}
+Skin/Wound: ${ad.skinWound||'—'} ${ad.skinNotes||''}
+
+Pain Score: ${ad.painScore||'0'}/10 Location: ${ad.painLocation||'—'} Notes: ${ad.painNotes||'—'}
+
+Code Status: ${ad.codeStatus||'—'} Advance Directive: ${ad.advDirective||'—'}
+
+Past Medical History: ${ad.medHistory||'—'}
+Current Medications: ${ad.currentMeds||'—'}
+Allergies: ${ad.allergies||'NKDA'}
+Surgical History: ${ad.surgicalHistory||'—'}
+Family History: ${ad.familyHistory||'—'}
+
+Tobacco: ${ad.tobacco||'—'} Alcohol: ${ad.alcohol||'—'}
+Living Situation: ${ad.livingSituation||'—'} Occupation: ${ad.occupation||'—'}
+
+Therapy Orders: ${(ad.therapyOrders||[]).join(', ')||'None'}
+Therapy Notes: ${ad.therapyNotes||'—'}
+
+Vital Signs: BP ${ad.bp||'—'} | HR ${ad.hr||'—'} | RR ${ad.rr||'—'} | Temp ${ad.temp||'—'}°F | O₂ Sat ${ad.o2sat||'—'}% | Weight ${ad.admWeight||ad.weight||'—'}
+
+Additional Notes: ${ad.additionalNotes||'None'}
+Follow Up: ${ad.followup||'None'}
+
+--- ADDITIONAL PASTED INFORMATION ---
+${ad.pastedInfo||'None provided'}
+--- END DATA ---`;
+
+  try {
+    const note = await callAI(prompt);
+    ad._generatedNote = note;
+    ad._generated = true;
+    // Mirror admission note → clinical notes on patient card
+    p.notes = note;
+    saveState();
+    renderAdmissions();
+    // Re-open card
+    const p2 = state.patients.find(x=>x.id===id);
+    if (p2 && p2.admissionData) p2.admissionData._open = true;
+    const body = document.getElementById('adm-body-'+id);
+    const exp = document.getElementById('adm-exp-'+id);
+    if (body) body.style.display = 'block';
+    if (exp) exp.style.transform = 'rotate(180deg)';
+    toast('✓ Admission note generated');
+  } catch(err) {
+    toast('Error: ' + err.message);
+    if (btn) btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (txt) txt.textContent = '✨ Generate Admission Note';
+  }
+}
+
+function copyAdmNote(id) {
+  const el = document.getElementById('adm-note-text-'+id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(()=>toast('Note copied to clipboard ✓')).catch(()=>toast('Copy failed'));
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg){ const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600); }
+
+// Close modals on backdrop click
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.getElementById('fac-modal').addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+
+// Enter key in add patient modal
+document.getElementById('m-cc').addEventListener('keydown',e=>{ if(e.key==='Enter') addPatient(); });
+document.getElementById('fac-name-input').addEventListener('keydown',e=>{ if(e.key==='Enter') addFacility(); });
+
+
+// ── BULK IMPORT ───────────────────────────────────────────────────────────────
+let parsedBulkPatients = [];
+
+function openBulkModal() {
+  document.getElementById('bulk-modal').style.display = 'flex';
+  const saved = localStorage.getItem('kt_api_key');
+  if (saved) { document.getElementById('bulk-api-key').value = saved; checkBulkKey(); }
+}
+
+function toggleBulkKey() {
+  const i = document.getElementById('bulk-api-key');
+  i.type = i.type === 'password' ? 'text' : 'password';
+}
+
+
+function checkBulkKey() {
+  const k = document.getElementById('bulk-api-key').value.trim();
+  const st = document.getElementById('bulk-key-status');
+  if (k.startsWith('sk-ant-')) {
+    st.textContent = '✓ Anthropic key ready'; st.style.color = 'var(--green)';
+    localStorage.setItem('kt_api_key', k);
+  } else {
+    st.textContent = k ? 'Invalid key format (should start with sk-ant-)' : 'Enter your Anthropic key';
+    st.style.color = 'var(--ink3)';
+  }
+  checkBulkReady();
+}
+
+function checkBulkReady() {
+  const key = document.getElementById('bulk-api-key').value.trim();
+  const paste = document.getElementById('bulk-paste').value.trim();
+  const btn = document.getElementById('bulk-parse-btn');
+  const ready = key.startsWith('sk-ant-') && paste.length > 10;
+  btn.disabled = !ready;
+  btn.style.opacity = ready ? '1' : '0.4';
+  btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+}
+
+async function bulkParse() {
+  const key = document.getElementById('bulk-api-key').value.trim();
+  const paste = document.getElementById('bulk-paste').value.trim();
+  const btn = document.getElementById('bulk-parse-btn');
+  const spinner = document.getElementById('bulk-spinner');
+  const btnText = document.getElementById('bulk-btn-text');
+
+  btn.disabled = true; spinner.style.display = 'block'; btnText.textContent = 'Parsing…';
+
+  const facilitiesList = state.facilities.join(', ');
+
+  const prompt = `You are a medical rounding assistant. Parse the following schedule from a NovoClinical EMR and extract each patient visit.
+
+For each patient extract:
+1. name — Last, First format
+2. dob — date of birth in MM/DD/YYYY format if present, otherwise empty string
+3. facility — match to one of these known facilities if possible: ${facilitiesList}. If no match found, use whatever facility name is in the text.
+4. visitType — classify as exactly one of: "Established Visit", "New Patient", "Transitional Care", "Annual Wellness", "Sick Visit"
+   - "Medical Care" → "Established Visit"
+   - "New Admission" → "New Patient"  
+   - "Sick Visit" / symptom complaints → "Sick Visit"
+   - "TCM" / "Transitional Care" → "Transitional Care"
+   - "AWV" / "Annual Wellness" → "Annual Wellness"
+   - Default to "Established Visit" if unclear
+5. cc — chief complaint or reason for visit (brief, from the visit description)
+
+Return ONLY a valid JSON array, no explanation, no markdown, no code fences.
+Example: [{"name":"Smith, John","dob":"01/15/1945","facility":"Brickmont of Roswell","visitType":"Established Visit","cc":"HTN follow-up"}]
+
+Schedule:
+${paste}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({model:'claude-sonnet-4-5',max_tokens:3000,messages:[{role:'user',content:prompt}]})
+    });
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'API error'); }
+    const data = await res.json();
+    let text = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    text = text.replace(/```json|```/g,'').trim();
+    parsedBulkPatients = JSON.parse(text);
+
+    // Add any new facilities found
+    parsedBulkPatients.forEach(p => {
+      if (p.facility && !state.facilities.includes(p.facility)) {
+        state.facilities.push(p.facility);
+      }
+    });
+
+    // Show preview
+    const preview = document.getElementById('bulk-preview');
+    const list = document.getElementById('bulk-preview-list');
+    list.innerHTML = parsedBulkPatients.map((p,i) => `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">
+        <div style="font-family:'Syne',sans-serif;font-weight:600;color:var(--ink);">${p.name}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--ink3);">${p.facility||'—'}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--accent);">${p.visitType}</div>
+        <button onclick="removeBulkItem(${i})" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:0.75rem;padding:2px 6px;border-radius:2px;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--ink3)'">✕</button>
+      </div>
+    `).join('');
+    preview.style.display = 'block';
+    document.getElementById('bulk-add-btn').style.display = 'block';
+    toast(`✓ Parsed ${parsedBulkPatients.length} patients`);
+  } catch(err) {
+    toast('Error: ' + err.message);
+  } finally {
+    btn.disabled = false; spinner.style.display = 'none'; btnText.textContent = '⚡ Parse with Claude AI';
+    checkBulkReady();
+  }
+}
+
+function removeBulkItem(i) {
+  parsedBulkPatients.splice(i, 1);
+  const list = document.getElementById('bulk-preview-list');
+  list.innerHTML = parsedBulkPatients.map((p,i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">
+      <div style="font-family:'Syne',sans-serif;font-weight:600;color:var(--ink);">${p.name}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--ink3);">${p.facility||'—'}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--accent);">${p.visitType}</div>
+      <button onclick="removeBulkItem(${i})" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:0.75rem;padding:2px 6px;border-radius:2px;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--ink3)'">✕</button>
+    </div>
+  `).join('');
+  if (!parsedBulkPatients.length) document.getElementById('bulk-add-btn').style.display = 'none';
+}
+
+function bulkAdd() {
+  parsedBulkPatients.forEach(p => {
+    state.patients.push({
+      id: state.nextId++,
+      name: p.name, dob: p.dob||'', visitType: p.visitType||'Established Visit',
+      facility: p.facility||'', cc: p.cc||'',
+      rounded: false, flags: {}, notes: '', labDetails: '', referralDetails: '', medDetails: '', followupDetails: ''
+    });
+  });
+  saveState();
+  document.getElementById('bulk-modal').style.display = 'none';
+  document.getElementById('bulk-paste').value = '';
+  document.getElementById('bulk-preview').style.display = 'none';
+  document.getElementById('bulk-add-btn').style.display = 'none';
+  parsedBulkPatients = [];
+  renderSidebar(); renderContent(); updateStats(); populateFacilitySelect();
+  toast(`✓ ${state.patients.length > 0 ? parsedBulkPatients.length || 'All' : 'Patients'} added successfully`);
+}
+
+
+const SCRIPT_URL='https://script.google.com/macros/s/AKfycbyh_kKG2ZQWijdXmdIVTl7uQ5PWgQCPvaE0NxrWh3O9nmN2W9VdAEjIVr_HxQ9XGVTSng/exec';
+function syncToCloud(){fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});}
+async function loadFromCloud(onDone){
+  try{
+    var r=await fetch(SCRIPT_URL+'?tool=rounding',{redirect:'follow'});
+    var d=await r.json();
+    if(d&&d!=='null'){state=d;if(!state.facilities)state.facilities=[];if(!state.patients)state.patients=[];if(!state.nextId)state.nextId=1;try{localStorage.setItem("kt_rounding",JSON.stringify(state))}catch(ee){}}
+  }catch(e){}
+  if(onDone)onDone();
+}
+function showSyncBanner(){
+  var b=document.createElement('div');
+  b.id='sync-banner';
+  b.style='background:#e8f4e8;border-bottom:1px solid #b8d8b8;padding:6px 14px;font-size:12px;color:#2a6a2a;display:flex;align-items:center;justify-content:space-between;';
+  b.innerHTML='<span id="sync-status">☁️ Loading from cloud...</span><button onclick="doSync()" style="font-size:11px;padding:2px 8px;border:1px solid #2a6a2a;border-radius:4px;background:#fff;cursor:pointer;color:#2a6a2a;">↺ Sync</button>';
+  document.body.insertBefore(b,document.body.firstChild);
+}
+
+function doSync(){
+  document.getElementById('sync-status').textContent='☁️ Syncing...';
+  loadFromCloud(function(){renderSidebar();renderContent();updateStats();populateFacilitySelect();var s=document.getElementById('sync-status');if(s)s.textContent='✓ Synced';});
+}
+function checkMonthlyReset() {
+  const now = new Date();
+  const thisMonth = now.getFullYear() + '-' + (now.getMonth()+1);
+  const lastReset = localStorage.getItem('kt_rounding_reset');
+  if (lastReset !== thisMonth) {
+    const count = state.patients.filter(p=>p.rounded).length;
+    if (count > 0) {
+      state.patients.forEach(p => { p.rounded = false; p.roundedDate = null; });
+      saveState();
+      toast(`↺ Monthly reset — ${count} patient${count!==1?'s':''} unmarked for ${now.toLocaleDateString('en-US',{month:'long',year:'numeric'})}`);
+    }
+    localStorage.setItem('kt_rounding_reset', thisMonth);
+  }
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  showSyncBanner();
+  loadFromCloud(function(){
+    checkMonthlyReset();
+    renderSidebar();renderContent();updateStats();populateFacilitySelect();
+    var s=document.getElementById('sync-status');if(s)s.textContent='✓ Synced';
+  });
+});
+
+init();
+</script>
+
+<!-- BULK IMPORT MODAL -->
+<div id="bulk-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:8px;width:600px;max-width:96vw;max-height:92vh;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column;">
+    <div style="background:var(--surface2);padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--ink);">⬆ Bulk Import Patients</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--ink3);letter-spacing:0.08em;margin-top:3px;">Paste your schedule — AI reads it and adds all patients automatically</div>
+      </div>
+      <button onclick="document.getElementById('bulk-modal').style.display='none'" style="background:none;border:none;color:var(--ink3);cursor:pointer;font-size:1rem;padding:2px 6px;">✕</button>
+    </div>
+    <div style="padding:20px;overflow-y:auto;flex:1;">
+      <!-- API KEY — CLAUDE -->
+      <div style="margin-bottom:14px;">
+        <label style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:5px;">Anthropic API Key (Claude)</label>
+        <div style="position:relative;">
+          <input type="password" id="bulk-api-key" placeholder="sk-ant-api03-..." autocomplete="off"
+            style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:0.78rem;padding:9px 40px 9px 11px;outline:none;"
+            oninput="checkBulkKey()">
+          <button onclick="toggleBulkKey()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink3);font-size:0.7rem;">👁</button>
+        </div>
+        <div id="bulk-key-status" style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;margin-top:4px;color:var(--ink3);">Enter your Anthropic key</div>
+      </div>
+      <!-- PASTE AREA -->
+      <div style="margin-bottom:14px;">
+        <label style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:5px;">Paste Schedule from NovoClinical</label>
+        <textarea id="bulk-paste" rows="12" placeholder="Paste anything from NovoClinical — patient names, visit types, dates, facilities, insurance info. Claude will extract only what it needs.
+
+Example:
+SHARON L SANAGO - Female (1359046)
+12/27/1953 (72 yrs)
+11:30-12:00  Brickmont of Roswell  Medical Care. Draft Saved...
+
+SHERYL J MINER - Female (1356464)
+INS Medicare B  13:30-14:30  Pegasus Landing of Roswell  New Admission Visit..."
+          style="width:100%;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:10px 12px;outline:none;resize:vertical;line-height:1.65;"
+          oninput="checkBulkReady()"></textarea>
+      </div>
+      <!-- PREVIEW -->
+      <div id="bulk-preview" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;">✓ Parsed Patients — Review Before Adding</div>
+        <div id="bulk-preview-list"></div>
+      </div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);background:var(--surface2);display:flex;gap:10px;align-items:center;">
+      <button id="bulk-parse-btn" onclick="bulkParse()" disabled
+        style="display:flex;align-items:center;gap:7px;font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:var(--r);cursor:pointer;opacity:0.4;transition:all .15s;">
+        <div id="bulk-spinner" style="width:13px;height:13px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;"></div>
+        <span id="bulk-btn-text">⚡ Parse with Claude AI</span>
+      </button>
+      <button id="bulk-add-btn" onclick="bulkAdd()" style="display:none;font-family:'Epilogue',sans-serif;font-size:0.84rem;font-weight:500;padding:10px 20px;background:var(--green);color:#fff;border:none;border-radius:var(--r);cursor:pointer;">✓ Add All Patients</button>
+      <button onclick="document.getElementById('bulk-modal').style.display='none'" style="font-family:'Epilogue',sans-serif;font-size:0.84rem;padding:10px 18px;background:none;border:1px solid var(--border2);color:var(--ink3);border-radius:var(--r);cursor:pointer;">Cancel</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
