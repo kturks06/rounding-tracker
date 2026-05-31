@@ -984,7 +984,7 @@ function saveVisitData(id) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   // Immediate sync — bypass debounce since user explicitly saved
   clearTimeout(_syncTimer);
-  fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});
+  fetch(FIREBASE_URL,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)}).catch(function(){});
   toast('Visit data saved ✓');
 }
 
@@ -1940,17 +1940,17 @@ function bulkAdd() {
 }
 
 
-const SCRIPT_URL='https://script.google.com/macros/s/AKfycbyh_kKG2ZQWijdXmdIVTl7uQ5PWgQCPvaE0NxrWh3O9nmN2W9VdAEjIVr_HxQ9XGVTSng/exec';
+const FIREBASE_URL='https://kelvin-tools-default-rtdb.firebaseio.com/rounding.json';
 let _syncTimer=null;
 function syncToCloud(){
   clearTimeout(_syncTimer);
   _syncTimer=setTimeout(function(){
-    fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({tool:'rounding',data:state})}).catch(function(){});
+    fetch(FIREBASE_URL,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)}).catch(function(){});
   },2000);
 }
 async function loadFromCloud(onDone){
   try{
-    var r=await fetch(SCRIPT_URL+'?tool=rounding',{redirect:'follow'});
+    var r=await fetch(FIREBASE_URL);
     var d=await r.json();
     if(d&&d!=='null'){
       // Always use cloud data on page load — cloud is the source of truth across devices
